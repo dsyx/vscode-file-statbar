@@ -1,0 +1,65 @@
+{
+	"name": "file-statbar",
+	"displayName": "File StatBar",
+	"version": "0.0.1",
+	"description": "File stats at a glance in your status bar.",
+	"categories": [
+		"Other"
+	],
+	"keywords": [],
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/dsyx/vscode-file-statbar.git"
+	},
+	"license": "MIT",
+	"author": {
+		"name": "Yaoxing Shan",
+		"url": "https://github.com/dsyx"
+	},
+	"publisher": "dsyx",
+	"main": "./dist/extension.js",
+	"scripts": {
+		"build": "pnpm clean && node esbuild.js --production",
+		"check": "biome check . && tsc --noEmit",
+		"clean": "node -e \"['dist', 'out'].forEach(d => require('node:fs').rmSync(d, { recursive: true, force: true }))\"",
+		"format": "biome check --write .",
+		"package": "pnpm check && pnpm build && vsce package --no-dependencies",
+		"release": "pnpm check && pnpm build && vsce publish --no-dependencies",
+		"test": "pnpm build && tsc -p . && vscode-test",
+		"watch": "pnpm run \"/^watch:.*/\"",
+		"watch:esbuild": "node esbuild.js --watch",
+		"watch:tsc": "tsc --noEmit --watch"
+	},
+	"contributes": {
+		"commands": [
+			{
+				"command": "file-statbar.helloWorld",
+				"title": "Hello World"
+			}
+		]
+	},
+	"activationEvents": [],
+	"devDependencies": {
+		"@biomejs/biome": "2.6.4",
+		"@types/mocha": "^10.0.10",
+		"@types/node": "^18.0.0",
+		"@types/vscode": "~1.85.0",
+		"@vscode/test-cli": "^0.0.15",
+		"@vscode/test-electron": "^3.0.0",
+		"@vscode/vsce": "^3.9.2",
+		"esbuild": "^0.28.1",
+		"typescript": "^6.0.3"
+	},
+	"engines": {
+		"node": ">=18.0.0",
+		"pnpm": ">=11.0.0",
+		"vscode": "^1.85.0"
+	},
+	"devEngines": {
+		"packageManager": {
+			"name": "pnpm",
+			"version": "^11.0.0",
+			"onFail": "download"
+		}
+	}
+}
