@@ -6,7 +6,17 @@
 	"categories": [
 		"Other"
 	],
-	"keywords": [],
+	"keywords": [
+		"file attributes",
+		"file info",
+		"file metadata",
+		"file mode",
+		"file permissions",
+		"file properties",
+		"file size",
+		"file stat",
+		"status bar"
+	],
 	"repository": {
 		"type": "git",
 		"url": "https://github.com/dsyx/vscode-file-statbar.git"
@@ -33,12 +43,38 @@
 	"contributes": {
 		"commands": [
 			{
-				"command": "file-statbar.helloWorld",
-				"title": "Hello World"
+				"command": "file-statbar.refresh",
+				"title": "File StatBar: Refresh"
 			}
-		]
+		],
+		"configuration": {
+			"title": "File StatBar",
+			"properties": {
+				"file-statbar.template": {
+					"type": "string",
+					"default": "[ {mode} | {size:iec} | {mtime} (M) ]",
+					"description": "Status bar display template."
+				},
+				"file-statbar.position": {
+					"type": "string",
+					"enum": [
+						"right",
+						"left"
+					],
+					"default": "right",
+					"description": "Status bar position."
+				},
+				"file-statbar.priority": {
+					"type": "integer",
+					"default": 1024,
+					"description": "Status bar priority."
+				}
+			}
+		}
 	},
-	"activationEvents": [],
+	"activationEvents": [
+		"onStartupFinished"
+	],
 	"devDependencies": {
 		"@biomejs/biome": "2.6.4",
 		"@types/mocha": "^10.0.10",
