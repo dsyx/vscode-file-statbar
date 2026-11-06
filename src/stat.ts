@@ -4,12 +4,20 @@ import * as vscode from 'vscode';
 import type { Stats } from './types.js';
 
 export function getActiveFileUri(): vscode.Uri | undefined {
+	const activeTabInput = vscode.window.tabGroups.activeTabGroup?.activeTab?.input;
+	const isDiffTab =
+		activeTabInput instanceof vscode.TabInputTextDiff || activeTabInput instanceof vscode.TabInputNotebookDiff;
+
 	const activeEditor = vscode.window.activeTextEditor;
-	if (activeEditor?.document?.uri && isSupportedFileScheme(activeEditor.document.uri.scheme)) {
-		return activeEditor.document.uri;
+	if (activeEditor?.document?.uri) {
+		const { scheme } = activeEditor.document.uri;
+		const isReadonlyDiffSide = isDiffTab && !isWritableFileScheme(scheme);
+		if (isSupportedFileScheme(scheme) && !isReadonlyDiffSide) {
+			return activeEditor.document.uri;
+		}
 	}
 
-	const uri = getTabInputUri(vscode.window.tabGroups.activeTabGroup?.activeTab?.input);
+	const uri = getTabInputUri(activeTabInput);
 	if (uri && isSupportedFileScheme(uri.scheme)) {
 		return uri;
 	}
@@ -21,27 +29,26 @@ export async function getFileStat(
 	target: vscode.Uri | string,
 	logError?: (msg: string) => void,
 ): Promise<Stats | undefined> {
-	const isUri = typeof target !== 'string';
-	const uri = isUri ? target : undefined;
-	const isLocal = !isUri || target.scheme === 'file';
-	const filePath = isUri ? (isLocal ? target.fsPath : target.path) : target;
-
-	if (isLocal) {
-		return getLocalFileStat(filePath, logError);
+	if (typeof target === 'string') {
+		return getLocalFileStat(target, logError);
 	}
 
-	if (uri) {
-		return getVirtualFileStat(uri, logError);
+	if (target.scheme === 'file') {
+		return getLocalFileStat(target.fsPath, logError);
 	}
 
-	return undefined;
+	return getVirtualFileStat(target, logError);
 }
 
 function isSupportedFileScheme(scheme: string): boolean {
 	return scheme === 'file' || vscode.workspace.fs.isWritableFileSystem(scheme) !== undefined;
 }
 
-function getTabInputUri(input: unknown): vscode.Uri | undefined {
+function isWritableFileScheme(scheme: string): boolean {
+	return scheme === 'file' || vscode.workspace.fs.isWritableFileSystem(scheme) === true;
+}
+
+export function getTabInputUri(input: unknown): vscode.Uri | undefined {
 	if (
 		input instanceof vscode.TabInputText ||
 		input instanceof vscode.TabInputCustom ||
@@ -55,18 +62,30 @@ function getTabInputUri(input: unknown): vscode.Uri | undefined {
 	return undefined;
 }
 
-async function getLocalFileStat(filePath: string, logError?: (msg: string) => void): Promise<Stats | undefined> {
-	const fileName = path.basename(filePath);
+function resolveFilePath(target: vscode.Uri | string): string {
+	const uri = typeof target === 'string' ? vscode.Uri.file(target) : target;
+	const folders = vscode.workspace.workspaceFolders;
+	if (folders && folders.length > 0 && vscode.workspace.getWorkspaceFolder(uri)) {
+		return vscode.workspace.asRelativePath(uri, false);
+	}
+	if (typeof target === 'string') {
+		return path.resolve(target);
+	}
+	return uri.scheme === 'file' ? uri.fsPath : uri.path;
+}
+
+async function getLocalFileStat(targetPath: string, logError?: (msg: string) => void): Promise<Stats | undefined> {
+	const filePath = resolveFilePath(targetPath);
 
 	try {
-		const stats = await fs.lstat(filePath, { bigint: true });
+		const stats = await fs.lstat(targetPath, { bigint: true });
 		let symlinkTarget: string | undefined;
 
 		if (stats.isSymbolicLink()) {
 			try {
-				symlinkTarget = await fs.readlink(filePath);
+				symlinkTarget = await fs.readlink(targetPath);
 			} catch (err) {
-				logError?.(`Failed to read symlink target for ${filePath}: ${String(err)}`);
+				logError?.(`Failed to read symlink target for ${targetPath}: ${String(err)}`);
 			}
 		}
 
@@ -92,17 +111,17 @@ async function getLocalFileStat(filePath: string, logError?: (msg: string) => vo
 			mtimeNs: stats.mtimeNs,
 			ctimeNs: stats.ctimeNs,
 			birthtimeNs: hasBirthtime ? stats.birthtimeNs : undefined,
-			fileName,
+			filePath,
 			symlinkTarget,
 		};
 	} catch (err) {
-		logError?.(`Failed to stat local file ${filePath}: ${String(err)}`);
+		logError?.(`Failed to stat local file ${targetPath}: ${String(err)}`);
 		return undefined;
 	}
 }
 
 async function getVirtualFileStat(uri: vscode.Uri, logError?: (msg: string) => void): Promise<Stats | undefined> {
-	const fileName = path.posix.basename(uri.path);
+	const filePath = resolveFilePath(uri);
 
 	try {
 		const vStat = await vscode.workspace.fs.stat(uri);
@@ -120,10 +139,10 @@ async function getVirtualFileStat(uri: vscode.Uri, logError?: (msg: string) => v
 		return {
 			mode,
 			size: vStat.size,
-			mtime: new Date(vStat.mtime),
+			mtime: vStat.mtime > 0 ? new Date(vStat.mtime) : undefined,
 			// vscode.FileStat.ctime is file creation time in VS Code API, not POSIX status change time.
-			birthtime: new Date(vStat.ctime),
-			fileName,
+			birthtime: vStat.ctime > 0 ? new Date(vStat.ctime) : undefined,
+			filePath,
 		};
 	} catch (err) {
 		logError?.(`Failed to stat virtual file ${uri.toString()}: ${String(err)}`);

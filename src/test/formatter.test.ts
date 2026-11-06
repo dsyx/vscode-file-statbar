@@ -26,6 +26,8 @@ suite('formatter tests', () => {
 		test('should return "-" for undefined or invalid mode', () => {
 			assert.strictEqual(formatOctalMode(undefined), '-');
 			assert.strictEqual(formatOctalMode(Number.NaN), '-');
+			assert.strictEqual(formatOctalMode(-1), '-');
+			assert.strictEqual(formatOctalMode(Number.POSITIVE_INFINITY), '-');
 		});
 	});
 
@@ -37,10 +39,14 @@ suite('formatter tests', () => {
 			assert.strictEqual(formatSymbolicMode(0o100000), '----------');
 		});
 
-		test('should format directory and symlink types', () => {
+		test('should format directory, symlink, and special file types (c, b, p, s)', () => {
 			assert.strictEqual(formatSymbolicMode(0o040755), 'drwxr-xr-x');
 			assert.strictEqual(formatSymbolicMode(0o120777), 'lrwxrwxrwx');
 			assert.strictEqual(formatSymbolicMode(0o120644), 'lrw-r--r--');
+			assert.strictEqual(formatSymbolicMode(0o020666), 'crw-rw-rw-');
+			assert.strictEqual(formatSymbolicMode(0o060660), 'brw-rw----');
+			assert.strictEqual(formatSymbolicMode(0o010644), 'prw-r--r--');
+			assert.strictEqual(formatSymbolicMode(0o140755), 'srwxr-xr-x');
 		});
 
 		test('should format special bit characters (s, S, t, T)', () => {
@@ -55,6 +61,8 @@ suite('formatter tests', () => {
 		test('should return "-" for undefined or invalid mode', () => {
 			assert.strictEqual(formatSymbolicMode(undefined), '-');
 			assert.strictEqual(formatSymbolicMode(Number.NaN), '-');
+			assert.strictEqual(formatSymbolicMode(-1), '-');
+			assert.strictEqual(formatSymbolicMode(Number.POSITIVE_INFINITY), '-');
 		});
 	});
 
@@ -103,11 +111,14 @@ suite('formatter tests', () => {
 			assert.strictEqual(formatStrftime(fixedDate), '2026-10-29 13:59:26');
 		});
 
-		test('should format with POSIX shortcut macros %F, %T, %R', () => {
+		test('should format with POSIX shortcut macros %F, %T, %R and escaped %%', () => {
 			assert.strictEqual(formatStrftime(fixedDate, '%F'), '2026-10-29');
 			assert.strictEqual(formatStrftime(fixedDate, '%T'), '13:59:26');
 			assert.strictEqual(formatStrftime(fixedDate, '%R'), '13:59');
 			assert.strictEqual(formatStrftime(fixedDate, '%F %T'), '2026-10-29 13:59:26');
+			assert.strictEqual(formatStrftime(fixedDate, '%%'), '%');
+			assert.strictEqual(formatStrftime(fixedDate, '%%F %%T %%R'), '%F %T %R');
+			assert.strictEqual(formatStrftime(fixedDate, '%%%F'), '%2026-10-29');
 		});
 
 		test('should format with custom tokens and retain literal text untouched', () => {
@@ -115,8 +126,14 @@ suite('formatter tests', () => {
 			assert.strictEqual(formatStrftime(fixedDate, '%F (Modified)'), '2026-10-29 (Modified)');
 			assert.strictEqual(formatStrftime(fixedDate, '%C-%y-%m-%d'), '20-26-10-29');
 			assert.strictEqual(formatStrftime(fixedDate, '%j %u %w'), '302 4 4');
-			assert.strictEqual(formatStrftime(fixedDate, '%G-W%V'), '2026-W44');
+			assert.strictEqual(formatStrftime(fixedDate, '%G-W%V-%g'), '2026-W44-26');
+			assert.strictEqual(formatStrftime(fixedDate, '%U %W'), '43 43');
+			assert.strictEqual(formatStrftime(fixedDate, '%e %I'), '29 01');
+			assert.match(formatStrftime(fixedDate, '%z'), /^[+-]\d{4}$/);
 			assert.strictEqual(formatStrftime(fixedDate, '%s'), String(Math.floor(fixedDate.getTime() / 1000)));
+
+			const earlyDate = new Date(2026, 0, 5, 0, 15, 0);
+			assert.strictEqual(formatStrftime(earlyDate, '%e %I'), ' 5 12');
 		});
 
 		test('should return "-" for invalid or undefined dates', () => {
@@ -127,7 +144,7 @@ suite('formatter tests', () => {
 
 	suite('formatStatusBarText', () => {
 		const stat: Stats = {
-			fileName: 'test.txt',
+			filePath: 'test.txt',
 			size: 1178,
 			mode: 0o100644,
 			mtime: new Date(2026, 9, 29, 13, 59, 0),
@@ -146,10 +163,17 @@ suite('formatter tests', () => {
 			assert.strictEqual(formatStatusBarText(stat, '{mode:d}'), '33188');
 			assert.strictEqual(formatStatusBarText(stat, '{mode:b}'), '1000000110100100');
 
-			const lowModeStat: Stats = { fileName: 'low.txt', size: 10, mode: 0o000755 };
+			const lowModeStat: Stats = { filePath: 'low.txt', size: 10, mode: 0o000755 };
 			assert.strictEqual(formatStatusBarText(lowModeStat, '{mode:x}'), '01ed');
 			assert.strictEqual(formatStatusBarText(lowModeStat, '{mode:X}'), '01ED');
 			assert.strictEqual(formatStatusBarText(lowModeStat, '{mode:b}'), '0000000111101101');
+
+			const invalidModeStat: Stats = { filePath: 'bad.txt', size: 10, mode: Number.NaN };
+			assert.strictEqual(formatStatusBarText(invalidModeStat, '{mode:o}'), '-');
+			assert.strictEqual(formatStatusBarText(invalidModeStat, '{mode:x}'), '-');
+			assert.strictEqual(formatStatusBarText(invalidModeStat, '{mode:X}'), '-');
+			assert.strictEqual(formatStatusBarText(invalidModeStat, '{mode:d}'), '-');
+			assert.strictEqual(formatStatusBarText(invalidModeStat, '{mode:b}'), '-');
 		});
 
 		test('should substitute size modifiers (raw, 1024, iec, 1000, si, bytes)', () => {
@@ -161,10 +185,23 @@ suite('formatter tests', () => {
 			assert.strictEqual(formatStatusBarText(stat, '{size:si}'), '1.18 kB');
 		});
 
-		test('should substitute strftime date modifiers and missing values with "-"', () => {
-			assert.strictEqual(formatStatusBarText(stat, '{mtime:%F}'), '2026-10-29');
-			assert.strictEqual(formatStatusBarText(stat, '{mtime:%R}'), '13:59');
-			assert.strictEqual(formatStatusBarText(stat, '{atime}'), '-');
+		test('should substitute strftime date modifiers, ctime/btime, and missing values with "-"', () => {
+			const fullStat: Stats = {
+				...stat,
+				ctime: new Date(2026, 9, 29, 14, 0, 0),
+				birthtime: new Date(2026, 9, 1, 8, 30, 0),
+			};
+			assert.strictEqual(formatStatusBarText(fullStat, '{mtime:%F}'), '2026-10-29');
+			assert.strictEqual(formatStatusBarText(fullStat, '{mtime:%R}'), '13:59');
+			assert.strictEqual(formatStatusBarText(fullStat, '{ctime:%T}'), '14:00:00');
+			assert.strictEqual(formatStatusBarText(fullStat, '{btime:%F}'), '2026-10-01');
+			assert.strictEqual(formatStatusBarText(fullStat, '{atime}'), '-');
+		});
+
+		test('should preserve unknown fields and unknown modifiers as-is', () => {
+			assert.strictEqual(formatStatusBarText(stat, '{unknown}'), '{unknown}');
+			assert.strictEqual(formatStatusBarText(stat, '{mode:invalid}'), '{mode:invalid}');
+			assert.strictEqual(formatStatusBarText(stat, '{size:invalid}'), '{size:invalid}');
 		});
 	});
 });

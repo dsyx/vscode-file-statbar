@@ -55,13 +55,25 @@ export function activate(context: vscode.ExtensionContext): void {
 	statBar.scheduleUpdate();
 }
 
+const DEFAULT_TEMPLATE = '[ {mode} | {size:iec} | {mtime} (M) ]';
+const DEFAULT_POSITION: Position = 'right';
+const DEFAULT_PRIORITY = 1024;
+
 export function deactivate(): void {}
 
-function loadConfig(): Config {
+export function loadConfig(): Config {
 	const wsConfig = vscode.workspace.getConfiguration('file-statbar');
+	const rawTemplate = wsConfig.get<unknown>('template', DEFAULT_TEMPLATE);
+	const rawPosition = wsConfig.get<unknown>('position', DEFAULT_POSITION);
+	const rawPriority = wsConfig.get<unknown>('priority', DEFAULT_PRIORITY);
+
+	const template = typeof rawTemplate === 'string' && rawTemplate.length > 0 ? rawTemplate : DEFAULT_TEMPLATE;
+	const position: Position = rawPosition === 'left' || rawPosition === 'right' ? rawPosition : DEFAULT_POSITION;
+	const priority = typeof rawPriority === 'number' && Number.isFinite(rawPriority) ? rawPriority : DEFAULT_PRIORITY;
+
 	return {
-		template: wsConfig.get<string>('template', '[ {mode} | {size:iec} | {mtime} (M) ]'),
-		position: wsConfig.get<Position>('position', 'right'),
-		priority: wsConfig.get<number>('priority', 1024),
+		template,
+		position,
+		priority,
 	};
 }

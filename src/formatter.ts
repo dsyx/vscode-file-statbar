@@ -29,8 +29,12 @@ const SI_UNITS = ['B', 'kB', 'MB', 'GB', 'TB', 'PB', 'EB'] as const;
 
 export type FileSizeFormat = 'iec' | 'si' | 'bytes';
 
+function isValidMode(mode: unknown): mode is number {
+	return typeof mode === 'number' && Number.isFinite(mode) && mode >= 0;
+}
+
 export function formatOctalMode(mode?: number): string {
-	if (mode === undefined || typeof mode !== 'number' || Number.isNaN(mode) || mode < 0) {
+	if (!isValidMode(mode)) {
 		return '-';
 	}
 	const permBits = mode & 0o7777;
@@ -38,7 +42,7 @@ export function formatOctalMode(mode?: number): string {
 }
 
 export function formatSymbolicMode(mode?: number): string {
-	if (mode === undefined || typeof mode !== 'number' || Number.isNaN(mode) || mode < 0) {
+	if (!isValidMode(mode)) {
 		return '-';
 	}
 
@@ -107,45 +111,65 @@ export function formatStrftime(date?: Date, pattern = '%Y-%m-%d %H:%M:%S'): stri
 		return '-';
 	}
 
+	let cachedDayOfYear: number | undefined;
+	const dayOfYear = (): number => {
+		cachedDayOfYear ??= getDayOfYear(date);
+		return cachedDayOfYear;
+	};
+
+	let cachedIso: { year: number; week: number } | undefined;
+	const iso = (): { year: number; week: number } => {
+		cachedIso ??= getIsoWeekDetails(date);
+		return cachedIso;
+	};
+
+	const year = (): string => String(date.getFullYear());
+	const month = (): string => String(date.getMonth() + 1).padStart(2, '0');
+	const day = (): string => String(date.getDate()).padStart(2, '0');
+	const hours = (): string => String(date.getHours()).padStart(2, '0');
+	const minutes = (): string => String(date.getMinutes()).padStart(2, '0');
+	const seconds = (): string => String(date.getSeconds()).padStart(2, '0');
+
+	const tokens: Record<string, () => string> = {
+		'%Y': year,
+		'%y': () => year().slice(-2),
+		'%C': () => String(Math.floor(date.getFullYear() / 100)).padStart(2, '0'),
+		'%m': month,
+		'%d': day,
+		'%e': () => String(date.getDate()).padStart(2, ' '),
+		'%j': () => String(dayOfYear()).padStart(3, '0'),
+		'%H': hours,
+		'%I': () => String(date.getHours() % 12 || 12).padStart(2, '0'),
+		'%M': minutes,
+		'%S': seconds,
+		'%s': () => String(Math.floor(date.getTime() / 1000)),
+		'%u': () => String(date.getDay() === 0 ? 7 : date.getDay()),
+		'%w': () => String(date.getDay()),
+		'%V': () => String(iso().week).padStart(2, '0'),
+		'%G': () => String(iso().year),
+		'%g': () => String(iso().year).slice(-2),
+		'%U': () => String(getWeekOfYearSunday(date, dayOfYear())).padStart(2, '0'),
+		'%W': () => String(getWeekOfYearMonday(date, dayOfYear())).padStart(2, '0'),
+		'%z': () => formatTimezoneOffset(date),
+		'%F': () => `${year()}-${month()}-${day()}`,
+		'%T': () => `${hours()}:${minutes()}:${seconds()}`,
+		'%R': () => `${hours()}:${minutes()}`,
+		'%%': () => '%',
+	};
+
+	return pattern.replace(/%[YyCmdejHIMSsuwVGgUWzFTR%]/g, (match) => {
+		const resolver = tokens[match];
+		return resolver ? resolver() : match;
+	});
+}
+
+function formatTimezoneOffset(date: Date): string {
 	const offset = -date.getTimezoneOffset();
 	const sign = offset >= 0 ? '+' : '-';
 	const absOffset = Math.abs(offset);
 	const tzHours = String(Math.floor(absOffset / 60)).padStart(2, '0');
 	const tzMinutes = String(absOffset % 60).padStart(2, '0');
-	const tz = `${sign}${tzHours}${tzMinutes}`;
-
-	const dayOfYear = getDayOfYear(date);
-	const iso = getIsoWeekDetails(date);
-	const weekSunday = getWeekOfYearSunday(date, dayOfYear);
-	const weekMonday = getWeekOfYearMonday(date, dayOfYear);
-
-	const tokens: Record<string, string> = {
-		'%Y': String(date.getFullYear()),
-		'%y': String(date.getFullYear()).slice(-2),
-		'%C': String(Math.floor(date.getFullYear() / 100)).padStart(2, '0'),
-		'%m': String(date.getMonth() + 1).padStart(2, '0'),
-		'%d': String(date.getDate()).padStart(2, '0'),
-		'%e': String(date.getDate()).padStart(2, ' '),
-		'%j': String(dayOfYear).padStart(3, '0'),
-		'%H': String(date.getHours()).padStart(2, '0'),
-		'%I': String(date.getHours() % 12 || 12).padStart(2, '0'),
-		'%M': String(date.getMinutes()).padStart(2, '0'),
-		'%S': String(date.getSeconds()).padStart(2, '0'),
-		'%s': String(Math.floor(date.getTime() / 1000)),
-		'%u': String(date.getDay() === 0 ? 7 : date.getDay()),
-		'%w': String(date.getDay()),
-		'%V': String(iso.week).padStart(2, '0'),
-		'%G': String(iso.year),
-		'%g': String(iso.year).slice(-2),
-		'%U': String(weekSunday).padStart(2, '0'),
-		'%W': String(weekMonday).padStart(2, '0'),
-		'%z': tz,
-		'%%': '%',
-	};
-
-	const expanded = pattern.replace(/%F/g, '%Y-%m-%d').replace(/%T/g, '%H:%M:%S').replace(/%R/g, '%H:%M');
-
-	return expanded.replace(/%[YyCmdejHIMSsuwVGgUWz%]/g, (match) => tokens[match] ?? match);
+	return `${sign}${tzHours}${tzMinutes}`;
 }
 
 function getDayOfYear(date: Date): number {
@@ -197,13 +221,13 @@ export function formatStatusBarText(stat: Stats, template: string): string {
 					case 'o':
 						return formatOctalMode(stat.mode);
 					case 'x':
-						return stat.mode !== undefined ? (stat.mode & 0xffff).toString(16).padStart(4, '0') : '-';
+						return isValidMode(stat.mode) ? (stat.mode & 0xffff).toString(16).padStart(4, '0') : '-';
 					case 'X':
-						return stat.mode !== undefined ? (stat.mode & 0xffff).toString(16).toUpperCase().padStart(4, '0') : '-';
+						return isValidMode(stat.mode) ? (stat.mode & 0xffff).toString(16).toUpperCase().padStart(4, '0') : '-';
 					case 'd':
-						return stat.mode !== undefined ? (stat.mode & 0xffff).toString(10) : '-';
+						return isValidMode(stat.mode) ? (stat.mode & 0xffff).toString(10) : '-';
 					case 'b':
-						return stat.mode !== undefined ? (stat.mode & 0xffff).toString(2).padStart(16, '0') : '-';
+						return isValidMode(stat.mode) ? (stat.mode & 0xffff).toString(2).padStart(16, '0') : '-';
 					default:
 						return match;
 				}

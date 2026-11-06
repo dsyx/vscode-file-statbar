@@ -19,6 +19,10 @@ export class StatBar implements vscode.Disposable {
 		this.statusBarItem = this.createStatusBarItem();
 	}
 
+	public get text(): string {
+		return this.statusBarItem.text;
+	}
+
 	public dispose(): void {
 		this.isDisposed = true;
 		if (this.debounceTimer) {
@@ -33,11 +37,14 @@ export class StatBar implements vscode.Disposable {
 			return;
 		}
 
+		++this.updateGeneration;
+
 		if (this.debounceTimer) {
 			clearTimeout(this.debounceTimer);
 		}
 
 		this.debounceTimer = setTimeout(() => {
+			this.debounceTimer = undefined;
 			this.update().catch((err) => {
 				this.logChannel?.error(`Update failed: ${String(err)}`);
 			});
@@ -61,6 +68,11 @@ export class StatBar implements vscode.Disposable {
 			return;
 		}
 
+		if (this.debounceTimer) {
+			clearTimeout(this.debounceTimer);
+			this.debounceTimer = undefined;
+		}
+
 		const generation = ++this.updateGeneration;
 		const uri = getActiveFileUri();
 		if (!uri) {
@@ -73,7 +85,13 @@ export class StatBar implements vscode.Disposable {
 			return;
 		}
 
-		if (getActiveFileUri()?.toString() !== uri.toString()) {
+		const currentUri = getActiveFileUri();
+		if (!currentUri) {
+			this.statusBarItem.hide();
+			return;
+		}
+
+		if (currentUri.toString() !== uri.toString()) {
 			return;
 		}
 
@@ -87,11 +105,11 @@ export class StatBar implements vscode.Disposable {
 	}
 
 	private createStatusBarItem(): vscode.StatusBarItem {
-		const alignment =
-			this.config.position === 'left' ? vscode.StatusBarAlignment.Left : vscode.StatusBarAlignment.Right;
+		const isLeft = this.config.position === 'left';
+		const alignment = isLeft ? vscode.StatusBarAlignment.Left : vscode.StatusBarAlignment.Right;
 
 		// On left alignment, negate priority so larger values place the item closer to center.
-		const actualPriority = this.config.position === 'right' ? this.config.priority : -this.config.priority;
+		const actualPriority = isLeft ? -this.config.priority : this.config.priority;
 
 		const item = vscode.window.createStatusBarItem('file-statbar.item', alignment, actualPriority);
 		item.name = 'File StatBar';

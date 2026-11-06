@@ -26,6 +26,6 @@ export interface Stats {
 	ctimeNs?: bigint;
 	birthtimeNs?: bigint;
 
-	fileName: string;
+	filePath: string;
 	symlinkTarget?: string;
 }
