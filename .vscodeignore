@@ -4,6 +4,7 @@
 **/eslint.config.mjs
 **/tsconfig.json
 *.vsix
+.agents/**
 .editorconfig
 .gitattributes
 .gitignore

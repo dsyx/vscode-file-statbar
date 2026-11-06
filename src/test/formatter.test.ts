@@ -171,7 +171,12 @@ describe('formatter tests', () => {
 			assert.strictEqual(formatStatusBarText(stat, '{mode:x}'), '81a4');
 			assert.strictEqual(formatStatusBarText(stat, '{mode:X}'), '81A4');
 			assert.strictEqual(formatStatusBarText(stat, '{mode:d}'), '33188');
-			assert.strictEqual(formatStatusBarText(stat, '{mode:b}'), '110100100');
+			assert.strictEqual(formatStatusBarText(stat, '{mode:b}'), '1000000110100100');
+
+			const lowModeStat: Stats = { fileName: 'low.txt', size: 10, mode: 0o000755 };
+			assert.strictEqual(formatStatusBarText(lowModeStat, '{mode:x}'), '01ed');
+			assert.strictEqual(formatStatusBarText(lowModeStat, '{mode:X}'), '01ED');
+			assert.strictEqual(formatStatusBarText(lowModeStat, '{mode:b}'), '0000000111101101');
 		});
 
 		it('should substitute size modifiers (raw, 1024, iec, 1000, si, bytes)', () => {

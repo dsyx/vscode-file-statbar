@@ -102,7 +102,7 @@ async function getLocalFileStat(filePath: string, logError?: (msg: string) => vo
 }
 
 async function getVirtualFileStat(uri: vscode.Uri, logError?: (msg: string) => void): Promise<Stats | undefined> {
-	const fileName = path.basename(uri.path);
+	const fileName = path.posix.basename(uri.path);
 
 	try {
 		const vStat = await vscode.workspace.fs.stat(uri);

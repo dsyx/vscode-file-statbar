@@ -27,21 +27,21 @@ A lightweight VS Code extension: File stats at a glance in your status bar.
 
 #### File Mode
 
-| Placeholder             | Description                      | Example         |
-| :---------------------- | :------------------------------- | :-------------- |
-| `{mode}`                | POSIX symbolic mode              | `-rw-r--r--`    |
-| `{mode:b}`              | 9-bit binary permission bitmask  | `110100100`     |
-| `{mode:o}`              | 4-digit octal permission         | `0644`          |
-| `{mode:d}`              | Raw decimal mode integer         | `33188`         |
-| `{mode:x}` / `{mode:X}` | 4-digit hex mode (lower / upper) | `81a4` / `81A4` |
+| Placeholder             | Description                      | Example            |
+| :---------------------- | :------------------------------- | :----------------- |
+| `{mode}`                | POSIX symbolic mode              | `-rw-r--r--`       |
+| `{mode:b}`              | 16-bit binary mode bitmask       | `1000000110100100` |
+| `{mode:o}`              | 4-digit octal permission         | `0644`             |
+| `{mode:d}`              | Raw decimal mode integer         | `33188`            |
+| `{mode:x}` / `{mode:X}` | 4-digit hex mode (lower / upper) | `81a4` / `81A4`    |
 
 #### File Size
 
-| Placeholder                  | Description                                                                               | Example   |
-| :--------------------------- | :---------------------------------------------------------------------------------------- | :-------- |
-| `{size}` / `{size:bytes}`    | Raw byte count                                                                            | `1178 B`  |
-| `{size:1000}` / `{size:si}`  | SI (International System of Units) metric units (1000-based: kB, MB, GB)                  | `1.18 kB` |
-| `{size:1024}` / `{size:iec}` | IEC (International Electrotechnical Commission) binary units (1024-based: KiB, MiB, GiB) | `1.15 KiB`|
+| Placeholder                  | Description                                                                              | Example    |
+| :--------------------------- | :--------------------------------------------------------------------------------------- | :--------- |
+| `{size}` / `{size:bytes}`    | Raw byte count                                                                           | `1178 B`   |
+| `{size:1000}` / `{size:si}`  | SI (International System of Units) metric units (1000-based: kB, MB, GB)                 | `1.18 kB`  |
+| `{size:1024}` / `{size:iec}` | IEC (International Electrotechnical Commission) binary units (1024-based: KiB, MiB, GiB) | `1.15 KiB` |
 
 #### Timestamps
 

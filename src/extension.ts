@@ -30,6 +30,10 @@ export function activate(context: vscode.ExtensionContext): void {
 		statBar.scheduleUpdate();
 	});
 
+	const activeTabGroupChange = vscode.window.tabGroups.onDidChangeTabGroups(() => {
+		statBar.scheduleUpdate();
+	});
+
 	const windowStateChange = vscode.window.onDidChangeWindowState((state) => {
 		if (state.focused) {
 			statBar.scheduleUpdate();
@@ -44,6 +48,7 @@ export function activate(context: vscode.ExtensionContext): void {
 		activeDocChange,
 		activeEditorChange,
 		activeTabChange,
+		activeTabGroupChange,
 		windowStateChange,
 	);
 

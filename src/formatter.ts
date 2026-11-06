@@ -241,13 +241,13 @@ export function formatStatusBarText(stat: Stats, template: string): string {
 					case 'o':
 						return formatOctalMode(stat.mode);
 					case 'x':
-						return stat.mode !== undefined ? (stat.mode & 0xffff).toString(16) : '-';
+						return stat.mode !== undefined ? (stat.mode & 0xffff).toString(16).padStart(4, '0') : '-';
 					case 'X':
-						return stat.mode !== undefined ? (stat.mode & 0xffff).toString(16).toUpperCase() : '-';
+						return stat.mode !== undefined ? (stat.mode & 0xffff).toString(16).toUpperCase().padStart(4, '0') : '-';
 					case 'd':
 						return stat.mode !== undefined ? (stat.mode & 0xffff).toString(10) : '-';
 					case 'b':
-						return stat.mode !== undefined ? (stat.mode & 0o777).toString(2).padStart(9, '0') : '-';
+						return stat.mode !== undefined ? (stat.mode & 0xffff).toString(2).padStart(16, '0') : '-';
 					default:
 						return match;
 				}
