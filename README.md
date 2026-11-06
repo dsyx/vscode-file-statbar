@@ -54,20 +54,25 @@ A lightweight VS Code extension: File stats at a glance in your status bar.
 
 Unavailable file metadata attributes (such as birth time on unsupported filesystems) fallback gracefully to `-`.
 
-All timestamp placeholders support POSIX `strftime` format specifiers via `:<pattern>` (e.g. `{mtime:%F %T}`, `{mtime:%Y/%m/%d %a}`, `{mtime:%R}`):
+All timestamp placeholders support ISO 8601-compatible `strftime` numeric format specifiers via `:<pattern>` (e.g. `{mtime:%F %T}`, `{mtime:%Y/%m/%d}`, `{mtime:%R}`, `{mtime:%s}`):
 
-| Specifier               | Description                                            | Example                           |
-| :---------------------- | :----------------------------------------------------- | :-------------------------------- |
-| `%Y`, `%y`              | 4-digit year, 2-digit year                             | `2026`, `26`                      |
-| `%m`, `%B`, `%b` / `%h` | Month number (01-12), full name, abbreviated name      | `11`, `November`, `Nov`           |
-| `%d`, `%e`              | Day of month zero-padded (01-31), space-padded ( 1-31) | `05`, ` 5`                        |
-| `%H`, `%I`              | Hour 24-hour clock (00-23), 12-hour clock (01-12)      | `14`, `02`                        |
-| `%M`                    | Minute zero-padded (00-59)                             | `30`                              |
-| `%S`                    | Second zero-padded (00-59)                             | `45`                              |
-| `%F`, `%T`, `%R`        | Shortcuts for `%Y-%m-%d`, `%H:%M:%S`, `%H:%M`          | `2026-11-05`, `14:30:45`, `14:30` |
-| `%A`, `%a`              | Full weekday name, abbreviated weekday name            | `Thursday`, `Thu`                 |
-| `%u`, `%w`              | Weekday number (1-7, Mon=1), (0-6, Sun=0)              | `4`, `4`                          |
-| `%z`                    | Timezone offset (+HHMM or -HHMM)                       | `+0800`                           |
+| Specifier        | Description                                            | Example                           |
+| :--------------- | :----------------------------------------------------- | :-------------------------------- |
+| `%Y`, `%y`       | 4-digit year, 2-digit year                             | `2026`, `26`                      |
+| `%C`             | 2-digit century number (year / 100)                    | `20`                              |
+| `%m`             | Month number zero-padded (01-12)                       | `11`                              |
+| `%d`, `%e`       | Day of month zero-padded (01-31), space-padded ( 1-31) | `05`, ` 5`                        |
+| `%j`             | Day of year zero-padded (001-366)                      | `309`                             |
+| `%H`, `%I`       | Hour 24-hour clock (00-23), 12-hour clock (01-12)      | `14`, `02`                        |
+| `%M`             | Minute zero-padded (00-59)                             | `30`                              |
+| `%S`             | Second zero-padded (00-59)                             | `45`                              |
+| `%s`             | Seconds since Unix epoch                               | `1793949127`                      |
+| `%u`, `%w`       | Weekday number (1-7, Mon=1), (0-6, Sun=0)              | `4`, `4`                          |
+| `%V`             | ISO 8601 week number (01-53)                           | `45`                              |
+| `%G`, `%g`       | ISO 8601 4-digit year, 2-digit year for week number    | `2026`, `26`                      |
+| `%U`, `%W`       | Week number starting Sunday (00-53), Monday (00-53)    | `44`, `44`                        |
+| `%z`             | Timezone offset (+HHMM or -HHMM)                       | `+0800`                           |
+| `%F`, `%T`, `%R` | Shortcuts for `%Y-%m-%d`, `%H:%M:%S`, `%H:%M`          | `2026-11-05`, `14:30:45`, `14:30` |
 
 Literal characters inside the modifier pattern (such as spaces, dashes, or custom tags) are preserved as-is.
 

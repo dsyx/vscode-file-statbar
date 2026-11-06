@@ -129,7 +129,10 @@ describe('formatter tests', () => {
 		it('should format with custom tokens and retain literal text untouched', () => {
 			assert.strictEqual(formatStrftime(fixedDate, '%Y/%m/%d'), '2026/10/29');
 			assert.strictEqual(formatStrftime(fixedDate, '%F (Modified)'), '2026-10-29 (Modified)');
-			assert.strictEqual(formatStrftime(fixedDate, '%a %b %d'), 'Thu Oct 29');
+			assert.strictEqual(formatStrftime(fixedDate, '%C-%y-%m-%d'), '20-26-10-29');
+			assert.strictEqual(formatStrftime(fixedDate, '%j %u %w'), '302 4 4');
+			assert.strictEqual(formatStrftime(fixedDate, '%G-W%V'), '2026-W44');
+			assert.strictEqual(formatStrftime(fixedDate, '%s'), String(Math.floor(fixedDate.getTime() / 1000)));
 		});
 
 		it('should return "-" for invalid or undefined dates', () => {

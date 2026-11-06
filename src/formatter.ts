@@ -29,25 +29,6 @@ const S_IXOTH = 0o000001;
 const IEC_UNITS = ['B', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB', 'EiB'] as const;
 const SI_UNITS = ['B', 'kB', 'MB', 'GB', 'TB', 'PB', 'EB'] as const;
 
-const MONTH_NAMES = [
-	'January',
-	'February',
-	'March',
-	'April',
-	'May',
-	'June',
-	'July',
-	'August',
-	'September',
-	'October',
-	'November',
-	'December',
-];
-
-const MONTH_SHORT_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-const DAY_SHORT_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
 export type FileSizeFormat = 'iec' | 'si' | 'bytes';
 
 export function formatOctalMode(mode?: number): string {
@@ -182,30 +163,76 @@ export function formatStrftime(date?: Date, pattern = '%Y-%m-%d %H:%M:%S'): stri
 	const tzMinutes = String(absOffset % 60).padStart(2, '0');
 	const tz = `${sign}${tzHours}${tzMinutes}`;
 
+	const dayOfYear = getDayOfYear(date);
+	const iso = getIsoWeekDetails(date);
+	const weekSunday = getWeekOfYearSunday(date, dayOfYear);
+	const weekMonday = getWeekOfYearMonday(date, dayOfYear);
+
 	const tokens: Record<string, string> = {
 		'%Y': String(date.getFullYear()),
 		'%y': String(date.getFullYear()).slice(-2),
+		'%C': String(Math.floor(date.getFullYear() / 100)).padStart(2, '0'),
 		'%m': String(date.getMonth() + 1).padStart(2, '0'),
-		'%B': MONTH_NAMES[date.getMonth()],
-		'%b': MONTH_SHORT_NAMES[date.getMonth()],
-		'%h': MONTH_SHORT_NAMES[date.getMonth()],
 		'%d': String(date.getDate()).padStart(2, '0'),
 		'%e': String(date.getDate()).padStart(2, ' '),
+		'%j': String(dayOfYear).padStart(3, '0'),
 		'%H': String(date.getHours()).padStart(2, '0'),
 		'%I': String(date.getHours() % 12 || 12).padStart(2, '0'),
 		'%M': String(date.getMinutes()).padStart(2, '0'),
 		'%S': String(date.getSeconds()).padStart(2, '0'),
-		'%A': DAY_NAMES[date.getDay()],
-		'%a': DAY_SHORT_NAMES[date.getDay()],
+		'%s': String(Math.floor(date.getTime() / 1000)),
 		'%u': String(date.getDay() === 0 ? 7 : date.getDay()),
 		'%w': String(date.getDay()),
+		'%V': String(iso.week).padStart(2, '0'),
+		'%G': String(iso.year),
+		'%g': String(iso.year).slice(-2),
+		'%U': String(weekSunday).padStart(2, '0'),
+		'%W': String(weekMonday).padStart(2, '0'),
 		'%z': tz,
 		'%%': '%',
 	};
 
 	const expanded = pattern.replace(/%F/g, '%Y-%m-%d').replace(/%T/g, '%H:%M:%S').replace(/%R/g, '%H:%M');
 
-	return expanded.replace(/%[YymbBdehHIIMSAauwz%]/g, (match) => tokens[match] ?? match);
+	return expanded.replace(/%[YyCmdejHIMSsuwVGgUWz%]/g, (match) => tokens[match] ?? match);
+}
+
+function getDayOfYear(date: Date): number {
+	const utcDate = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
+	const utcStart = Date.UTC(date.getFullYear(), 0, 1);
+	return Math.floor((utcDate - utcStart) / 86_400_000) + 1;
+}
+
+function getIsoWeekDetails(date: Date): { year: number; week: number } {
+	const day = date.getDay() === 0 ? 7 : date.getDay();
+	const target = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+	target.setUTCDate(target.getUTCDate() + (4 - day));
+	const isoYear = target.getUTCFullYear();
+	const janFirst = new Date(Date.UTC(isoYear, 0, 1));
+	const janFirstDay = janFirst.getUTCDay() === 0 ? 7 : janFirst.getUTCDay();
+	const firstThursday = new Date(Date.UTC(isoYear, 0, 1 + (4 - janFirstDay + (janFirstDay > 4 ? 7 : 0))));
+	const isoWeek = 1 + Math.round((target.getTime() - firstThursday.getTime()) / 604_800_000);
+	return { year: isoYear, week: isoWeek };
+}
+
+function getWeekOfYearSunday(date: Date, dayOfYear: number): number {
+	const jan1 = new Date(date.getFullYear(), 0, 1);
+	const jan1Day = jan1.getDay();
+	const daysToFirstSunday = (7 - jan1Day) % 7;
+	if (dayOfYear <= daysToFirstSunday) {
+		return 0;
+	}
+	return 1 + Math.floor((dayOfYear - daysToFirstSunday - 1) / 7);
+}
+
+function getWeekOfYearMonday(date: Date, dayOfYear: number): number {
+	const jan1 = new Date(date.getFullYear(), 0, 1);
+	const jan1Day = jan1.getDay() === 0 ? 7 : jan1.getDay();
+	const daysToFirstMonday = (8 - jan1Day) % 7;
+	if (dayOfYear <= daysToFirstMonday) {
+		return 0;
+	}
+	return 1 + Math.floor((dayOfYear - daysToFirstMonday - 1) / 7);
 }
 
 export function formatGnuStatTimestamp(date?: Date, nanosBigInt?: bigint): string {
