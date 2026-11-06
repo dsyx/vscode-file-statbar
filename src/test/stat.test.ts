@@ -2,17 +2,15 @@ import assert from 'node:assert/strict';
 import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import * as process from 'node:process';
 import * as vscode from 'vscode';
-import { formatDeviceNumber } from '../formatter.js';
 import { getActiveFileUri, getFileStat } from '../stat.js';
 
-describe('stat tests', () => {
+suite('stat tests', () => {
 	let tempDir: string;
 	let testFilePath: string;
 	let symlinkPath: string;
 
-	before(async () => {
+	suiteSetup(async () => {
 		tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'file-statbar-test-'));
 		testFilePath = path.join(tempDir, 'sample.txt');
 		await fs.writeFile(testFilePath, 'Hello, File StatBar!', 'utf8');
@@ -25,11 +23,11 @@ describe('stat tests', () => {
 		}
 	});
 
-	after(async () => {
+	suiteTeardown(async () => {
 		await fs.rm(tempDir, { recursive: true, force: true });
 	});
 
-	it('should get accurate stats for a regular file (path string)', async () => {
+	test('should get accurate stats for a regular file (path string)', async () => {
 		const stat = await getFileStat(testFilePath);
 		assert.ok(stat !== undefined);
 		assert.strictEqual(stat.fileName, 'sample.txt');
@@ -45,7 +43,7 @@ describe('stat tests', () => {
 		assert.ok(stat.mtimeNs > 0n);
 	});
 
-	it('should get accurate stats for a file Uri (vscode.Uri with file scheme)', async () => {
+	test('should get accurate stats for a file Uri (vscode.Uri with file scheme)', async () => {
 		const fileUri = vscode.Uri.file(testFilePath);
 		const stat = await getFileStat(fileUri);
 		assert.ok(stat !== undefined);
@@ -55,7 +53,7 @@ describe('stat tests', () => {
 		assert.strictEqual(stat.mode & 0o170000, 0o100000);
 	});
 
-	it('should extract the modified side of diff tabs and the uri of custom and notebook tabs', () => {
+	test('should extract the modified side of diff tabs and the uri of custom and notebook tabs', () => {
 		const original = vscode.Uri.parse('vscode-test:/workspace/a.ts');
 		const modified = vscode.Uri.file(testFilePath);
 
@@ -69,12 +67,12 @@ describe('stat tests', () => {
 		assert.strictEqual(notebook.uri.toString(), original.toString());
 	});
 
-	it('should extract active file Uri or return undefined when none active', () => {
+	test('should extract active file Uri or return undefined when none active', () => {
 		const uri = getActiveFileUri();
 		assert.ok(uri === undefined || uri instanceof vscode.Uri);
 	});
 
-	it('should get stats for a symbolic link if supported', async () => {
+	test('should get stats for a symbolic link if supported', async () => {
 		let hasSymlink = false;
 		try {
 			await fs.lstat(symlinkPath);
@@ -95,19 +93,8 @@ describe('stat tests', () => {
 		assert.strictEqual((stat.mode ?? 0) & 0o170000, 0o120000);
 	});
 
-	it('should return undefined for non-existent file', async () => {
+	test('should return undefined for non-existent file', async () => {
 		const stat = await getFileStat(path.join(tempDir, 'does-not-exist.txt'));
 		assert.strictEqual(stat, undefined);
-	});
-
-	it('should format device numbers correctly across platforms', () => {
-		assert.strictEqual(formatDeviceNumber(undefined), '-');
-
-		if (process.platform === 'linux') {
-			assert.strictEqual(formatDeviceNumber(2049n), '8,1');
-		}
-		if (process.platform === 'darwin') {
-			assert.strictEqual(formatDeviceNumber(0x01000004n), '1,4');
-		}
 	});
 });

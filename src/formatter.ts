@@ -1,10 +1,8 @@
-import * as process from 'node:process';
 import type { Stats } from './types.js';
 
 const S_IFMT = 0o170000;
 const S_IFSOCK = 0o140000;
 const S_IFLNK = 0o120000;
-const S_IFREG = 0o100000;
 const S_IFBLK = 0o060000;
 const S_IFDIR = 0o040000;
 const S_IFCHR = 0o020000;
@@ -68,53 +66,6 @@ export function formatSymbolicMode(mode?: number): string {
 	}
 
 	return `${typeChar}${userR}${userW}${userX}${groupR}${groupW}${groupX}${otherR}${otherW}${otherX}`;
-}
-
-export function getFileTypeDescription(mode?: number): string {
-	if (mode === undefined) {
-		return 'file';
-	}
-
-	switch (mode & S_IFMT) {
-		case S_IFLNK:
-			return 'symbolic link';
-		case S_IFREG:
-			return 'regular file';
-		case S_IFDIR:
-			return 'directory';
-		case S_IFCHR:
-			return 'character special file';
-		case S_IFBLK:
-			return 'block special file';
-		case S_IFIFO:
-			return 'fifo';
-		case S_IFSOCK:
-			return 'socket';
-		default:
-			return 'unknown';
-	}
-}
-
-export function formatDeviceNumber(dev?: bigint): string {
-	if (dev == null) {
-		return '-';
-	}
-
-	// Linux glibc: major = ((dev >> 8) & 0xfff) | ((dev >> 32) & ~0xfff), minor = (dev & 0xff) | ((dev >> 12) & 0xfff00)
-	if (process.platform === 'linux') {
-		const major = Number(((dev >> 8n) & 0xfffn) | ((dev >> 32n) & ~0xfffn));
-		const minor = Number((dev & 0xffn) | ((dev >> 12n) & 0xfff00n));
-		return `${major},${minor}`;
-	}
-
-	// macOS Darwin: major = (dev >> 24) & 0xff, minor = dev & 0xffffff
-	if (process.platform === 'darwin') {
-		const major = Number((dev >> 24n) & 0xffn);
-		const minor = Number(dev & 0xffffffn);
-		return `${major},${minor}`;
-	}
-
-	return dev.toString();
 }
 
 export function formatFileSize(bytes?: number, format: FileSizeFormat = 'bytes'): string {
@@ -235,28 +186,6 @@ function getWeekOfYearMonday(date: Date, dayOfYear: number): number {
 	return 1 + Math.floor((dayOfYear - daysToFirstMonday - 1) / 7);
 }
 
-export function formatGnuStatTimestamp(date?: Date, nanosBigInt?: bigint): string {
-	if (nanosBigInt !== undefined) {
-		if (nanosBigInt === 0n) {
-			return '-';
-		}
-		const ms = Number(nanosBigInt / 1_000_000n);
-		const d = new Date(ms);
-		if (Number.isNaN(d.getTime())) {
-			return '-';
-		}
-		const nanosPart = String(nanosBigInt % 1_000_000_000n).padStart(9, '0');
-		return buildTimestampString(d, nanosPart);
-	}
-
-	if (date && date instanceof Date && !Number.isNaN(date.getTime())) {
-		const nanosPart = `${String(date.getMilliseconds()).padStart(3, '0')}000000`;
-		return buildTimestampString(date, nanosPart);
-	}
-
-	return '-';
-}
-
 export function formatStatusBarText(stat: Stats, template: string): string {
 	return template.replace(/\{([a-zA-Z]+)(?::([^}]+))?\}/g, (match, field: string, modifier?: string) => {
 		switch (field) {
@@ -308,45 +237,6 @@ export function formatStatusBarText(stat: Stats, template: string): string {
 	});
 }
 
-export function formatAlignedStatCard(stat: Stats): string {
-	const isSymlink = stat.mode !== undefined && (stat.mode & S_IFMT) === S_IFLNK;
-	const fileHeader =
-		isSymlink && stat.symlinkTarget ? `  File: ${stat.fileName} -> ${stat.symlinkTarget}` : `  File: ${stat.fileName}`;
-
-	const modeOctal = formatOctalMode(stat.mode);
-	const modeSymbolic = formatSymbolicMode(stat.mode);
-	const fileType = getFileTypeDescription(stat.mode);
-	const devStr = formatDeviceNumber(stat.dev);
-
-	const accessMode = `(${modeOctal}/${modeSymbolic})`;
-	const uidVal = `(${stat.uid ?? '-'}/-)`;
-	const gidVal = `(${stat.gid ?? '-'}/-)`;
-
-	const lineSize = [
-		`  Size: ${stat.size ?? '-'}`.padEnd(28),
-		`Blocks: ${stat.blocks ?? '-'}`.padEnd(24),
-		`IO Block: ${stat.blksize ?? '-'}`.padEnd(20),
-		fileType,
-	].join('');
-
-	const lineDevice = [
-		`Device: ${devStr}`.padEnd(28),
-		` Inode: ${stat.ino ?? '-'}`.padEnd(24),
-		`   Links: ${stat.nlink ?? '-'}`,
-	].join('');
-
-	const lineAccess = [`Access: ${accessMode}`.padEnd(28), `   Uid: ${uidVal}`.padEnd(24), `     Gid: ${gidVal}`].join(
-		'',
-	);
-
-	const lineAtime = `Access: ${formatGnuStatTimestamp(stat.atime, stat.atimeNs)}`;
-	const lineMtime = `Modify: ${formatGnuStatTimestamp(stat.mtime, stat.mtimeNs)}`;
-	const lineCtime = `Change: ${formatGnuStatTimestamp(stat.ctime, stat.ctimeNs)}`;
-	const lineBtime = ` Birth: ${formatGnuStatTimestamp(stat.birthtime, stat.birthtimeNs)}`;
-
-	return [fileHeader, lineSize, lineDevice, lineAccess, lineAtime, lineMtime, lineCtime, lineBtime].join('\n');
-}
-
 function getTypeCharacter(mode: number): string {
 	switch (mode & S_IFMT) {
 		case S_IFLNK:
@@ -364,22 +254,4 @@ function getTypeCharacter(mode: number): string {
 		default:
 			return '-';
 	}
-}
-
-function buildTimestampString(date: Date, nanosPart: string): string {
-	const year4 = String(date.getFullYear());
-	const month2 = String(date.getMonth() + 1).padStart(2, '0');
-	const day2 = String(date.getDate()).padStart(2, '0');
-	const hours2 = String(date.getHours()).padStart(2, '0');
-	const minutes2 = String(date.getMinutes()).padStart(2, '0');
-	const seconds2 = String(date.getSeconds()).padStart(2, '0');
-
-	const offset = -date.getTimezoneOffset();
-	const sign = offset >= 0 ? '+' : '-';
-	const absOffset = Math.abs(offset);
-	const tzHours = String(Math.floor(absOffset / 60)).padStart(2, '0');
-	const tzMinutes = String(absOffset % 60).padStart(2, '0');
-	const tz = `${sign}${tzHours}${tzMinutes}`;
-
-	return `${year4}-${month2}-${day2} ${hours2}:${minutes2}:${seconds2}.${nanosPart} ${tz}`;
 }

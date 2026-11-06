@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { formatAlignedStatCard, formatStatusBarText } from './formatter.js';
+import { formatStatusBarText } from './formatter.js';
 import { getActiveFileUri, getFileStat } from './stat.js';
 import type { Config } from './types.js';
 
@@ -83,9 +83,6 @@ export class StatBar implements vscode.Disposable {
 		}
 
 		this.statusBarItem.text = formatStatusBarText(stat, this.config.template);
-		const md = new vscode.MarkdownString();
-		md.appendCodeblock(formatAlignedStatCard(stat), 'text');
-		this.statusBarItem.tooltip = md;
 		this.statusBarItem.show();
 	}
 

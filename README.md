@@ -12,7 +12,6 @@ A lightweight VS Code extension: File stats at a glance in your status bar.
 ## Features
 
 - **Status Bar Display**: Real-time display of active file mode, size, and modification time (e.g. `[ -rw-r--r-- | 1.15 KiB | 2026-10-29 13:59:26 (M) ]`).
-- **GNU `stat`-Style Hover Card**: Monospace hover table displaying detailed file attributes (permissions, inode, blocks, ownership, and timestamps).
 - **Universal Support**: Works across text files, images, binary files, and custom editor tabs.
 
 ## Settings

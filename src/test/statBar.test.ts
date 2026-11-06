@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { StatBar } from '../statBar.js';
 import type { Config } from '../types.js';
 
-describe('StatBar tests', () => {
+suite('StatBar tests', () => {
 	const defaultConfig: Config = {
 		template: '[ {mode} | {size:iec} | {mtime} (M) ]',
 		position: 'right',
@@ -11,28 +11,28 @@ describe('StatBar tests', () => {
 
 	let statBar: StatBar;
 
-	beforeEach(() => {
+	setup(() => {
 		statBar = new StatBar(defaultConfig);
 	});
 
-	afterEach(() => {
+	teardown(() => {
 		statBar.dispose();
 	});
 
-	it('should create and dispose StatBar cleanly', () => {
+	test('should create and dispose StatBar cleanly', () => {
 		assert.ok(statBar);
 		assert.doesNotThrow(() => {
 			statBar.dispose();
 		});
 	});
 
-	it('should schedule update without error', () => {
+	test('should schedule update without error', () => {
 		assert.doesNotThrow(() => {
 			statBar.scheduleUpdate();
 		});
 	});
 
-	it('should update configuration without error', () => {
+	test('should update configuration without error', () => {
 		assert.doesNotThrow(() => {
 			statBar.updateConfig({
 				template: '[ {size} ]',
@@ -42,7 +42,7 @@ describe('StatBar tests', () => {
 		});
 	});
 
-	it('should execute update without error', async () => {
+	test('should execute update without error', async () => {
 		await assert.doesNotReject(async () => {
 			await statBar.update();
 		});
