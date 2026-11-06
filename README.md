@@ -1,94 +1,78 @@
 # File StatBar
 
-A simple, lightweight, and practical VS Code extension that displays file metadata in the status bar, inspired by the Linux `stat` and `ls -l` commands.
+[![Visual Studio Marketplace Version](https://img.shields.io/visual-studio-marketplace/v/dsyx.file-statbar?style=flat-square)](https://marketplace.visualstudio.com/items?itemName=dsyx.file-statbar)
+[![Changelog](https://img.shields.io/badge/Changelog-blue?style=flat-square)](CHANGELOG.md)
+[![GitHub Issues](https://img.shields.io/github/issues/dsyx/vscode-file-statbar?style=flat-square)](https://github.com/dsyx/vscode-file-statbar/issues)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
+
+A lightweight VS Code extension: File stats at a glance in your status bar.
+
+<!-- ![File StatBar Preview](images/preview.png) -->
 
 ## Features
 
 - **Status Bar Display**: Real-time display of active file mode, size, and modification time (e.g. `[ -rw-r--r-- | 1.15 KiB | 2026-10-29 13:59:26 (M) ]`).
-- **GNU `stat` Hover Card**: Hovering over the status bar item reveals an authentically aligned, monospace GNU `stat` output table detailing permissions, size, blocks, inode, links, device, ownership, and timestamps.
-- **Broad File Support**: Supports text files, images, binary files, and custom editor tabs.
-- **Fast & Responsive**: Refreshes stats seamlessly when switching tabs, saving documents, or refocusing VS Code.
-- **Symlink Resolution**: Shows symbolic link targets directly in the hover card (`File: link -> target`).
-- **Zero Runtime Dependencies**: Ultra-lightweight and blazingly fast.
+- **GNU `stat`-Style Hover Card**: Monospace hover table displaying detailed file attributes (permissions, inode, blocks, ownership, and timestamps).
+- **Universal Support**: Works across text files, images, binary files, and custom editor tabs.
 
-## Configuration
+## Settings
 
-| Setting                 | Type                | Default                                     | Description                                                     |
-| :---------------------- | :------------------ | :------------------------------------------ | :-------------------------------------------------------------- |
-| `file-statbar.template` | `string`            | `"[ {mode} \| {size:iec} \| {mtime} (M) ]"` | Status bar display template.                                    |
-| `file-statbar.position` | `"right" \| "left"` | `"right"`                                   | Position on the status bar.                                     |
-| `file-statbar.priority` | `number`            | `1024`                                      | Status bar priority (larger value keeps item closer to center). |
+| Setting                 | Type                | Default                                     | Description                                                      |
+| :---------------------- | :------------------ | :------------------------------------------ | :--------------------------------------------------------------- |
+| `file-statbar.template` | `string`            | `"[ {mode} \| {size:iec} \| {mtime} (M) ]"` | Status bar display template.                                     |
+| `file-statbar.position` | `"right" \| "left"` | `"right"`                                   | Position on the status bar.                                      |
+| `file-statbar.priority` | `number`            | `1024`                                      | Status bar priority (higher values place item closer to center). |
 
 ### Template Placeholders & Modifiers
 
-#### File Mode (`mode`)
+#### File Mode
 
-| Placeholder | Format Description              | Standard / Origin        | Example Output |
-| :---------- | :------------------------------ | :----------------------- | :------------- |
-| `{mode}`    | POSIX symbolic mode (default)   | POSIX `ls -l`            | `-rw-r--r--`   |
-| `{mode:o}`  | 4-digit octal permission        | C `%o` / Python `{:o}`   | `0644`         |
-| `{mode:x}`  | 4-digit lowercase hex mode      | C `%x` / Python `{:x}`   | `81a4`         |
-| `{mode:X}`  | 4-digit uppercase hex mode      | C `%X` / Python `{:X}`   | `81A4`         |
-| `{mode:d}`  | Raw decimal mode integer        | C `%d` / Python `{:d}`   | `33188`        |
-| `{mode:b}`  | 9-bit binary permission bitmask | C23 `%b` / Python `{:b}` | `110100100`    |
+| Placeholder             | Description                      | Example         |
+| :---------------------- | :------------------------------- | :-------------- |
+| `{mode}`                | POSIX symbolic mode              | `-rw-r--r--`    |
+| `{mode:b}`              | 9-bit binary permission bitmask  | `110100100`     |
+| `{mode:o}`              | 4-digit octal permission         | `0644`          |
+| `{mode:d}`              | Raw decimal mode integer         | `33188`         |
+| `{mode:x}` / `{mode:X}` | 4-digit hex mode (lower / upper) | `81a4` / `81A4` |
 
-#### File Size (`size`)
+#### File Size
 
-| Placeholder    | Format Description               | Standard / Units             | Example Output (1178 B) |
-| :------------- | :------------------------------- | :--------------------------- | :---------------------- |
-| `{size}`       | Raw integer byte count (default) | Exact bytes                  | `1178 B`                |
-| `{size:bytes}` | Raw integer byte count (alias)   | Exact bytes                  | `1178 B`                |
-| `{size:1024}`  | 1024-based binary units          | IEC 80000-13 (KiB, MiB, GiB) | `1.15 KiB`              |
-| `{size:iec}`   | 1024-based binary units (alias)  | IEC 80000-13 (KiB, MiB, GiB) | `1.15 KiB`              |
-| `{size:1000}`  | 1000-based metric units          | SI standard (kB, MB, GB)     | `1.18 kB`               |
-| `{size:si}`    | 1000-based metric units (alias)  | SI standard (kB, MB, GB)     | `1.18 kB`               |
+| Placeholder                  | Description                                                                               | Example   |
+| :--------------------------- | :---------------------------------------------------------------------------------------- | :-------- |
+| `{size}` / `{size:bytes}`    | Raw byte count                                                                            | `1178 B`  |
+| `{size:1000}` / `{size:si}`  | SI (International System of Units) metric units (1000-based: kB, MB, GB)                  | `1.18 kB` |
+| `{size:1024}` / `{size:iec}` | IEC (International Electrotechnical Commission) binary units (1024-based: KiB, MiB, GiB) | `1.15 KiB`|
 
-#### Timestamps (`mtime`, `atime`, `ctime`, `btime`)
+#### Timestamps
 
-| Placeholder | Description                        | Default Format      |
-| :---------- | :--------------------------------- | :------------------ |
-| `{mtime}`   | Last modification time             | `%Y-%m-%d %H:%M:%S` |
-| `{atime}`   | Last access time                   | `%Y-%m-%d %H:%M:%S` |
-| `{ctime}`   | Last metadata / status change time | `%Y-%m-%d %H:%M:%S` |
-| `{btime}`   | Creation / birth time              | `%Y-%m-%d %H:%M:%S` |
+| Placeholder | Description                    | Default Format      |
+| :---------- | :----------------------------- | :------------------ |
+| `{atime}`   | Time of last access            | `%Y-%m-%d %H:%M:%S` |
+| `{mtime}`   | Time of last data modification | `%Y-%m-%d %H:%M:%S` |
+| `{ctime}`   | Time of last status change     | `%Y-%m-%d %H:%M:%S` |
+| `{btime}`   | Time of file birth (creation)  | `%Y-%m-%d %H:%M:%S` |
+
+Unavailable file metadata attributes (such as birth time on unsupported filesystems) fallback gracefully to `-`.
 
 All timestamp placeholders support POSIX `strftime` format specifiers via `:<pattern>` (e.g. `{mtime:%F %T}`, `{mtime:%Y/%m/%d %a}`, `{mtime:%R}`):
 
-| Specifier               | Description                                            | Example Output                    |
+| Specifier               | Description                                            | Example                           |
 | :---------------------- | :----------------------------------------------------- | :-------------------------------- |
 | `%Y`, `%y`              | 4-digit year, 2-digit year                             | `2026`, `26`                      |
 | `%m`, `%B`, `%b` / `%h` | Month number (01-12), full name, abbreviated name      | `11`, `November`, `Nov`           |
 | `%d`, `%e`              | Day of month zero-padded (01-31), space-padded ( 1-31) | `05`, ` 5`                        |
 | `%H`, `%I`              | Hour 24-hour clock (00-23), 12-hour clock (01-12)      | `14`, `02`                        |
-| `%M`, `%S`              | Minute (00-59), Second (00-59)                         | `30`, `45`                        |
+| `%M`                    | Minute zero-padded (00-59)                             | `30`                              |
+| `%S`                    | Second zero-padded (00-59)                             | `45`                              |
 | `%F`, `%T`, `%R`        | Shortcuts for `%Y-%m-%d`, `%H:%M:%S`, `%H:%M`          | `2026-11-05`, `14:30:45`, `14:30` |
 | `%A`, `%a`              | Full weekday name, abbreviated weekday name            | `Thursday`, `Thu`                 |
 | `%u`, `%w`              | Weekday number (1-7, Mon=1), (0-6, Sun=0)              | `4`, `4`                          |
 | `%z`                    | Timezone offset (+HHMM or -HHMM)                       | `+0800`                           |
 
-Literal characters inside the modifier pattern (such as spaces, dashes, or custom tags) are preserved as-is. Unsupported or unavailable attributes fallback gracefully to `-`.
+Literal characters inside the modifier pattern (such as spaces, dashes, or custom tags) are preserved as-is.
 
 ## Commands
 
+All commands can be executed via the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`):
+
 - `File StatBar: Refresh` (`file-statbar.refresh`): Manually refresh file statistics for the active editor.
-
-## Development Requirements
-
-- Node.js >= 18.0.0
-- pnpm >= 11.0.0
-- VS Code >= 1.85.0
-
-## Scripts
-
-- `pnpm run build`: Clean output directories and compile production bundle.
-- `pnpm run check`: Run Biome linter and TypeScript type checker.
-- `pnpm run clean`: Clean `dist/` and `out/` build directories.
-- `pnpm run format`: Format code with Biome.
-- `pnpm run package`: Validate, build, and package extension into `.vsix`.
-- `pnpm run release`: Validate, build, and publish extension to marketplace.
-- `pnpm run test`: Build extension, compile test suites, and execute tests with `@vscode/test-cli`.
-- `pnpm run watch`: Run TypeScript and esbuild in watch mode concurrently.
-
-## License
-
-[MIT](LICENSE)
