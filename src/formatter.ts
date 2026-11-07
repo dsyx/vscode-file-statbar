@@ -1,8 +1,7 @@
-import type { Stats } from './types.js';
-
 const S_IFMT = 0o170000;
 const S_IFSOCK = 0o140000;
 const S_IFLNK = 0o120000;
+const S_IFREG = 0o100000;
 const S_IFBLK = 0o060000;
 const S_IFDIR = 0o040000;
 const S_IFCHR = 0o020000;
@@ -12,33 +11,44 @@ const S_ISUID = 0o004000;
 const S_ISGID = 0o002000;
 const S_ISVTX = 0o001000;
 
+const S_IRWXU = 0o000700;
 const S_IRUSR = 0o000400;
 const S_IWUSR = 0o000200;
 const S_IXUSR = 0o000100;
 
+const S_IRWXG = 0o000070;
 const S_IRGRP = 0o000040;
 const S_IWGRP = 0o000020;
 const S_IXGRP = 0o000010;
 
+const S_IRWXO = 0o000007;
 const S_IROTH = 0o000004;
 const S_IWOTH = 0o000002;
 const S_IXOTH = 0o000001;
 
-const IEC_UNITS = ['B', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB', 'EiB'] as const;
 const SI_UNITS = ['B', 'kB', 'MB', 'GB', 'TB', 'PB', 'EB'] as const;
+const IEC_UNITS = ['B', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB', 'EiB'] as const;
 
-export type FileSizeFormat = 'iec' | 'si' | 'bytes';
+export type FileSizeFormat = 'bytes' | 'si' | 'iec';
 
-function isValidMode(mode?: number): mode is number {
-	return mode !== undefined && Number.isFinite(mode) && mode >= 0;
-}
-
-export function formatOctalMode(mode?: number): string {
-	if (!isValidMode(mode)) {
-		return '-';
+export function formatMode(mode?: number, modifier?: string): string | undefined {
+	if (!modifier) {
+		return formatSymbolicMode(mode);
 	}
-	const permBits = mode & 0o7777;
-	return permBits.toString(8).padStart(4, '0');
+	switch (modifier) {
+		case 'b':
+			return isValidMode(mode) ? (mode & 0xffff).toString(2).padStart(16, '0') : '-';
+		case 'o':
+			return formatOctalMode(mode);
+		case 'd':
+			return isValidMode(mode) ? (mode & 0xffff).toString(10) : '-';
+		case 'x':
+			return isValidMode(mode) ? (mode & 0xffff).toString(16).padStart(4, '0') : '-';
+		case 'X':
+			return isValidMode(mode) ? (mode & 0xffff).toString(16).toUpperCase().padStart(4, '0') : '-';
+		default:
+			return undefined;
+	}
 }
 
 export function formatSymbolicMode(mode?: number): string {
@@ -46,7 +56,7 @@ export function formatSymbolicMode(mode?: number): string {
 		return '-';
 	}
 
-	const typeChar = getTypeCharacter(mode);
+	const typeChar = getFileTypeChar(mode);
 
 	const userR = mode & S_IRUSR ? 'r' : '-';
 	const userW = mode & S_IWUSR ? 'w' : '-';
@@ -72,24 +82,12 @@ export function formatSymbolicMode(mode?: number): string {
 	return `${typeChar}${userR}${userW}${userX}${groupR}${groupW}${groupX}${otherR}${otherW}${otherX}`;
 }
 
-export function formatMode(mode?: number, modifier?: string): string | undefined {
-	if (!modifier) {
-		return formatSymbolicMode(mode);
+export function formatOctalMode(mode?: number): string {
+	if (!isValidMode(mode)) {
+		return '-';
 	}
-	switch (modifier) {
-		case 'o':
-			return formatOctalMode(mode);
-		case 'x':
-			return isValidMode(mode) ? (mode & 0xffff).toString(16).padStart(4, '0') : '-';
-		case 'X':
-			return isValidMode(mode) ? (mode & 0xffff).toString(16).toUpperCase().padStart(4, '0') : '-';
-		case 'd':
-			return isValidMode(mode) ? (mode & 0xffff).toString(10) : '-';
-		case 'b':
-			return isValidMode(mode) ? (mode & 0xffff).toString(2).padStart(16, '0') : '-';
-		default:
-			return undefined;
-	}
+	const permBits = mode & (S_ISUID | S_ISGID | S_ISVTX | S_IRWXU | S_IRWXG | S_IRWXO);
+	return permBits.toString(8).padStart(4, '0');
 }
 
 export function formatFileSize(bytes?: number, format: FileSizeFormat = 'bytes'): string {
@@ -98,7 +96,7 @@ export function formatFileSize(bytes?: number, format: FileSizeFormat = 'bytes')
 	}
 
 	if (format === 'bytes') {
-		return `${Math.floor(bytes)} B`;
+		return `${bytes} B`;
 	}
 
 	const isIec = format === 'iec';
@@ -114,7 +112,7 @@ export function formatFileSize(bytes?: number, format: FileSizeFormat = 'bytes')
 	}
 
 	if (unitIndex === 0) {
-		return `${Math.floor(value)} ${units[0]}`;
+		return `${bytes} ${units[0]}`;
 	}
 
 	// Advance unit if 2-decimal rounding pushes value to base (e.g. 1048575 B -> 1023.999 KiB -> rounds to 1024.00 KiB -> 1.00 MiB)
@@ -199,6 +197,31 @@ export function formatStrftime(date?: Date, pattern = '%Y-%m-%d %H:%M:%S'): stri
 	});
 }
 
+function isValidMode(mode?: number): mode is number {
+	return mode !== undefined && Number.isFinite(mode) && mode >= 0;
+}
+
+function getFileTypeChar(mode: number): string {
+	switch (mode & S_IFMT) {
+		case S_IFSOCK:
+			return 's';
+		case S_IFLNK:
+			return 'l';
+		case S_IFREG:
+			return '-';
+		case S_IFBLK:
+			return 'b';
+		case S_IFDIR:
+			return 'd';
+		case S_IFCHR:
+			return 'c';
+		case S_IFIFO:
+			return 'p';
+		default:
+			return '-';
+	}
+}
+
 function formatTimezoneOffset(date: Date): string {
 	const offset = -date.getTimezoneOffset();
 	const sign = offset >= 0 ? '+' : '-';
@@ -244,57 +267,4 @@ function getWeekOfYearMonday(date: Date, dayOfYear: number): number {
 		return 0;
 	}
 	return 1 + Math.floor((dayOfYear - daysToFirstMonday - 1) / 7);
-}
-
-export function formatStatusBarText(stat: Stats, template: string): string {
-	return template.replace(/\{([a-zA-Z]+)(?::([^}]+))?\}/g, (match, field: string, modifier?: string) => {
-		switch (field) {
-			case 'mode':
-				return formatMode(stat.mode, modifier) ?? match;
-			case 'size': {
-				switch (modifier) {
-					case '1024':
-					case 'iec':
-						return formatFileSize(stat.size, 'iec');
-					case '1000':
-					case 'si':
-						return formatFileSize(stat.size, 'si');
-					case 'bytes':
-					case undefined:
-						return formatFileSize(stat.size, 'bytes');
-					default:
-						return match;
-				}
-			}
-			case 'mtime':
-				return formatStrftime(stat.mtime, modifier);
-			case 'atime':
-				return formatStrftime(stat.atime, modifier);
-			case 'ctime':
-				return formatStrftime(stat.ctime, modifier);
-			case 'btime':
-				return formatStrftime(stat.birthtime, modifier);
-			default:
-				return match;
-		}
-	});
-}
-
-function getTypeCharacter(mode: number): string {
-	switch (mode & S_IFMT) {
-		case S_IFLNK:
-			return 'l';
-		case S_IFDIR:
-			return 'd';
-		case S_IFCHR:
-			return 'c';
-		case S_IFBLK:
-			return 'b';
-		case S_IFIFO:
-			return 'p';
-		case S_IFSOCK:
-			return 's';
-		default:
-			return '-';
-	}
 }

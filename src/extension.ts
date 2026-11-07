@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { getActiveFileUri } from './stat.js';
+import { getActiveUri } from './stat.js';
 import { StatBar } from './statBar.js';
 import type { Config, Position } from './types.js';
 
@@ -25,12 +25,9 @@ export function activate(context: vscode.ExtensionContext): void {
 			}
 		}),
 		vscode.workspace.onDidSaveTextDocument((doc) => {
-			if (doc.uri.toString() === getActiveFileUri()?.toString()) {
+			if (doc.uri.toString() === getActiveUri()?.toString()) {
 				statBar.scheduleUpdate();
 			}
-		}),
-		vscode.window.onDidChangeActiveTextEditor(() => {
-			statBar.scheduleUpdate();
 		}),
 		vscode.window.tabGroups.onDidChangeTabs(() => {
 			statBar.scheduleUpdate();
@@ -50,19 +47,11 @@ export function activate(context: vscode.ExtensionContext): void {
 
 export function deactivate(): void {}
 
-export function loadConfig(): Config {
-	const wsConfig = vscode.workspace.getConfiguration('file-statbar');
-	const rawTemplate = wsConfig.get<unknown>('template', DEFAULT_TEMPLATE);
-	const rawPosition = wsConfig.get<unknown>('position', DEFAULT_POSITION);
-	const rawPriority = wsConfig.get<unknown>('priority', DEFAULT_PRIORITY);
-
-	const template = typeof rawTemplate === 'string' && rawTemplate.length > 0 ? rawTemplate : DEFAULT_TEMPLATE;
-	const position: Position = rawPosition === 'left' || rawPosition === 'right' ? rawPosition : DEFAULT_POSITION;
-	const priority = typeof rawPriority === 'number' && Number.isFinite(rawPriority) ? rawPriority : DEFAULT_PRIORITY;
-
+function loadConfig(): Config {
+	const config = vscode.workspace.getConfiguration('file-statbar');
 	return {
-		template,
-		position,
-		priority,
+		template: config.get<string>('template', DEFAULT_TEMPLATE),
+		position: config.get<Position>('position', DEFAULT_POSITION),
+		priority: config.get<number>('priority', DEFAULT_PRIORITY),
 	};
 }

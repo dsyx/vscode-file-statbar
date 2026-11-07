@@ -63,6 +63,22 @@ suite('StatBar tests', () => {
 		assert.strictEqual(statBar.text, '20 B');
 	});
 
+	test('should substitute template placeholders and preserve unknown fields/modifiers', async () => {
+		const doc = await vscode.workspace.openTextDocument(testFilePath);
+		await vscode.window.showTextDocument(doc);
+
+		statBar.updateConfig({
+			template: '{size} | {size:1000} | {size:1024} | {mtime:%Y} | {unknown} | {mode:invalid} | {size:invalid}',
+			position: 'right',
+			priority: 1024,
+		});
+		await statBar.update();
+		assert.match(
+			statBar.text,
+			/^20 B \| 20 B \| 20 B \| \d{4} \| \{unknown\} \| \{mode:invalid\} \| \{size:invalid\}$/,
+		);
+	});
+
 	test('should execute debounced update via scheduleUpdate', async () => {
 		const doc = await vscode.workspace.openTextDocument(testFilePath);
 		await vscode.window.showTextDocument(doc);
