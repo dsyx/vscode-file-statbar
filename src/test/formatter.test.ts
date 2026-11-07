@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {
 	formatFileSize,
+	formatMode,
 	formatOctalMode,
 	formatStatusBarText,
 	formatStrftime,
@@ -9,6 +10,25 @@ import {
 import type { Stats } from '../types.js';
 
 suite('formatter tests', () => {
+	suite('formatMode', () => {
+		test('should format default symbolic mode when modifier is omitted', () => {
+			assert.strictEqual(formatMode(0o100644), '-rw-r--r--');
+			assert.strictEqual(formatMode(undefined), '-');
+		});
+
+		test('should format octal, hex, decimal, and binary modes', () => {
+			assert.strictEqual(formatMode(0o100644, 'o'), '0644');
+			assert.strictEqual(formatMode(0o100644, 'x'), '81a4');
+			assert.strictEqual(formatMode(0o100644, 'X'), '81A4');
+			assert.strictEqual(formatMode(0o100644, 'd'), '33188');
+			assert.strictEqual(formatMode(0o100644, 'b'), '1000000110100100');
+		});
+
+		test('should return undefined for unknown modifier', () => {
+			assert.strictEqual(formatMode(0o100644, 'unknown'), undefined);
+		});
+	});
+
 	suite('formatOctalMode', () => {
 		test('should format standard permissions as 4-digit octal', () => {
 			assert.strictEqual(formatOctalMode(0o100644), '0644');

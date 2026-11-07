@@ -29,8 +29,8 @@ const SI_UNITS = ['B', 'kB', 'MB', 'GB', 'TB', 'PB', 'EB'] as const;
 
 export type FileSizeFormat = 'iec' | 'si' | 'bytes';
 
-function isValidMode(mode: unknown): mode is number {
-	return typeof mode === 'number' && Number.isFinite(mode) && mode >= 0;
+function isValidMode(mode?: number): mode is number {
+	return mode !== undefined && Number.isFinite(mode) && mode >= 0;
 }
 
 export function formatOctalMode(mode?: number): string {
@@ -72,8 +72,28 @@ export function formatSymbolicMode(mode?: number): string {
 	return `${typeChar}${userR}${userW}${userX}${groupR}${groupW}${groupX}${otherR}${otherW}${otherX}`;
 }
 
+export function formatMode(mode?: number, modifier?: string): string | undefined {
+	if (!modifier) {
+		return formatSymbolicMode(mode);
+	}
+	switch (modifier) {
+		case 'o':
+			return formatOctalMode(mode);
+		case 'x':
+			return isValidMode(mode) ? (mode & 0xffff).toString(16).padStart(4, '0') : '-';
+		case 'X':
+			return isValidMode(mode) ? (mode & 0xffff).toString(16).toUpperCase().padStart(4, '0') : '-';
+		case 'd':
+			return isValidMode(mode) ? (mode & 0xffff).toString(10) : '-';
+		case 'b':
+			return isValidMode(mode) ? (mode & 0xffff).toString(2).padStart(16, '0') : '-';
+		default:
+			return undefined;
+	}
+}
+
 export function formatFileSize(bytes?: number, format: FileSizeFormat = 'bytes'): string {
-	if (bytes === undefined || bytes === null || !Number.isFinite(bytes) || bytes < 0) {
+	if (bytes === undefined || !Number.isFinite(bytes) || bytes < 0) {
 		return '-';
 	}
 
@@ -107,7 +127,7 @@ export function formatFileSize(bytes?: number, format: FileSizeFormat = 'bytes')
 }
 
 export function formatStrftime(date?: Date, pattern = '%Y-%m-%d %H:%M:%S'): string {
-	if (!date || !(date instanceof Date) || Number.isNaN(date.getTime())) {
+	if (!date || Number.isNaN(date.getTime())) {
 		return '-';
 	}
 
@@ -123,43 +143,59 @@ export function formatStrftime(date?: Date, pattern = '%Y-%m-%d %H:%M:%S'): stri
 		return cachedIso;
 	};
 
-	const year = (): string => String(date.getFullYear());
-	const month = (): string => String(date.getMonth() + 1).padStart(2, '0');
-	const day = (): string => String(date.getDate()).padStart(2, '0');
-	const hours = (): string => String(date.getHours()).padStart(2, '0');
-	const minutes = (): string => String(date.getMinutes()).padStart(2, '0');
-	const seconds = (): string => String(date.getSeconds()).padStart(2, '0');
-
-	const tokens: Record<string, () => string> = {
-		'%Y': year,
-		'%y': () => year().slice(-2),
-		'%C': () => String(Math.floor(date.getFullYear() / 100)).padStart(2, '0'),
-		'%m': month,
-		'%d': day,
-		'%e': () => String(date.getDate()).padStart(2, ' '),
-		'%j': () => String(dayOfYear()).padStart(3, '0'),
-		'%H': hours,
-		'%I': () => String(date.getHours() % 12 || 12).padStart(2, '0'),
-		'%M': minutes,
-		'%S': seconds,
-		'%s': () => String(Math.floor(date.getTime() / 1000)),
-		'%u': () => String(date.getDay() === 0 ? 7 : date.getDay()),
-		'%w': () => String(date.getDay()),
-		'%V': () => String(iso().week).padStart(2, '0'),
-		'%G': () => String(iso().year),
-		'%g': () => String(iso().year).slice(-2),
-		'%U': () => String(getWeekOfYearSunday(date, dayOfYear())).padStart(2, '0'),
-		'%W': () => String(getWeekOfYearMonday(date, dayOfYear())).padStart(2, '0'),
-		'%z': () => formatTimezoneOffset(date),
-		'%F': () => `${year()}-${month()}-${day()}`,
-		'%T': () => `${hours()}:${minutes()}:${seconds()}`,
-		'%R': () => `${hours()}:${minutes()}`,
-		'%%': () => '%',
-	};
-
 	return pattern.replace(/%[YyCmdejHIMSsuwVGgUWzFTR%]/g, (match) => {
-		const resolver = tokens[match];
-		return resolver ? resolver() : match;
+		switch (match) {
+			case '%Y':
+				return String(date.getFullYear());
+			case '%y':
+				return String(date.getFullYear()).slice(-2);
+			case '%C':
+				return String(Math.floor(date.getFullYear() / 100)).padStart(2, '0');
+			case '%m':
+				return String(date.getMonth() + 1).padStart(2, '0');
+			case '%d':
+				return String(date.getDate()).padStart(2, '0');
+			case '%e':
+				return String(date.getDate()).padStart(2, ' ');
+			case '%j':
+				return String(dayOfYear()).padStart(3, '0');
+			case '%H':
+				return String(date.getHours()).padStart(2, '0');
+			case '%I':
+				return String(date.getHours() % 12 || 12).padStart(2, '0');
+			case '%M':
+				return String(date.getMinutes()).padStart(2, '0');
+			case '%S':
+				return String(date.getSeconds()).padStart(2, '0');
+			case '%s':
+				return String(Math.floor(date.getTime() / 1000));
+			case '%u':
+				return String(date.getDay() === 0 ? 7 : date.getDay());
+			case '%w':
+				return String(date.getDay());
+			case '%V':
+				return String(iso().week).padStart(2, '0');
+			case '%G':
+				return String(iso().year);
+			case '%g':
+				return String(iso().year).slice(-2);
+			case '%U':
+				return String(getWeekOfYearSunday(date, dayOfYear())).padStart(2, '0');
+			case '%W':
+				return String(getWeekOfYearMonday(date, dayOfYear())).padStart(2, '0');
+			case '%z':
+				return formatTimezoneOffset(date);
+			case '%F':
+				return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+			case '%T':
+				return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}:${String(date.getSeconds()).padStart(2, '0')}`;
+			case '%R':
+				return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+			case '%%':
+				return '%';
+			default:
+				return match;
+		}
 	});
 }
 
@@ -213,25 +249,8 @@ function getWeekOfYearMonday(date: Date, dayOfYear: number): number {
 export function formatStatusBarText(stat: Stats, template: string): string {
 	return template.replace(/\{([a-zA-Z]+)(?::([^}]+))?\}/g, (match, field: string, modifier?: string) => {
 		switch (field) {
-			case 'mode': {
-				if (!modifier) {
-					return formatSymbolicMode(stat.mode);
-				}
-				switch (modifier) {
-					case 'o':
-						return formatOctalMode(stat.mode);
-					case 'x':
-						return isValidMode(stat.mode) ? (stat.mode & 0xffff).toString(16).padStart(4, '0') : '-';
-					case 'X':
-						return isValidMode(stat.mode) ? (stat.mode & 0xffff).toString(16).toUpperCase().padStart(4, '0') : '-';
-					case 'd':
-						return isValidMode(stat.mode) ? (stat.mode & 0xffff).toString(10) : '-';
-					case 'b':
-						return isValidMode(stat.mode) ? (stat.mode & 0xffff).toString(2).padStart(16, '0') : '-';
-					default:
-						return match;
-				}
-			}
+			case 'mode':
+				return formatMode(stat.mode, modifier) ?? match;
 			case 'size': {
 				switch (modifier) {
 					case '1024':

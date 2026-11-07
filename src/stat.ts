@@ -1,5 +1,4 @@
 import * as fs from 'node:fs/promises';
-import * as path from 'node:path';
 import * as vscode from 'vscode';
 import type { Stats } from './types.js';
 
@@ -29,15 +28,12 @@ export async function getFileStat(
 	target: vscode.Uri | string,
 	logError?: (msg: string) => void,
 ): Promise<Stats | undefined> {
-	if (typeof target === 'string') {
-		return getLocalFileStat(target, logError);
+	const uri = typeof target === 'string' ? vscode.Uri.file(target) : target;
+	if (uri.scheme === 'file') {
+		return getLocalFileStat(uri, logError);
 	}
 
-	if (target.scheme === 'file') {
-		return getLocalFileStat(target.fsPath, logError);
-	}
-
-	return getVirtualFileStat(target, logError);
+	return getVirtualFileStat(uri, logError);
 }
 
 function isSupportedFileScheme(scheme: string): boolean {
@@ -62,20 +58,17 @@ export function getTabInputUri(input: unknown): vscode.Uri | undefined {
 	return undefined;
 }
 
-function resolveFilePath(target: vscode.Uri | string): string {
-	const uri = typeof target === 'string' ? vscode.Uri.file(target) : target;
+function resolveFilePath(uri: vscode.Uri): string {
 	const folders = vscode.workspace.workspaceFolders;
 	if (folders && folders.length > 0 && vscode.workspace.getWorkspaceFolder(uri)) {
 		return vscode.workspace.asRelativePath(uri, false);
 	}
-	if (typeof target === 'string') {
-		return path.resolve(target);
-	}
 	return uri.scheme === 'file' ? uri.fsPath : uri.path;
 }
 
-async function getLocalFileStat(targetPath: string, logError?: (msg: string) => void): Promise<Stats | undefined> {
-	const filePath = resolveFilePath(targetPath);
+async function getLocalFileStat(uri: vscode.Uri, logError?: (msg: string) => void): Promise<Stats | undefined> {
+	const filePath = resolveFilePath(uri);
+	const targetPath = uri.fsPath;
 
 	try {
 		const stats = await fs.lstat(targetPath, { bigint: true });

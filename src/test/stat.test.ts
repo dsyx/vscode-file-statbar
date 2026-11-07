@@ -34,7 +34,7 @@ suite('stat tests', () => {
 	test('should get accurate stats for a regular file (path string)', async () => {
 		const stat = await getFileStat(testFilePath);
 		assert.ok(stat !== undefined);
-		assert.strictEqual(stat.filePath, testFilePath);
+		assert.strictEqual(stat.filePath, vscode.Uri.file(testFilePath).fsPath);
 		assert.strictEqual(stat.size, 20);
 		assert.ok(typeof stat.mode === 'number');
 		assert.strictEqual(stat.mode & 0o170000, 0o100000);
@@ -244,7 +244,7 @@ suite('stat tests', () => {
 
 		const stat = await getFileStat(symlinkPath);
 		assert.ok(stat !== undefined);
-		assert.strictEqual(stat.filePath, symlinkPath);
+		assert.strictEqual(stat.filePath, vscode.Uri.file(symlinkPath).fsPath);
 		assert.strictEqual(stat.symlinkTarget, testFilePath);
 		assert.strictEqual(typeof stat.mode, 'number');
 		assert.strictEqual((stat.mode ?? 0) & 0o170000, 0o120000);

@@ -85,16 +85,6 @@ export class StatBar implements vscode.Disposable {
 			return;
 		}
 
-		const currentUri = getActiveFileUri();
-		if (!currentUri) {
-			this.statusBarItem.hide();
-			return;
-		}
-
-		if (currentUri.toString() !== uri.toString()) {
-			return;
-		}
-
 		if (!stat) {
 			this.statusBarItem.hide();
 			return;
