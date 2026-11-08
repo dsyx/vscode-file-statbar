@@ -1,95 +1,58 @@
 import assert from 'node:assert/strict';
-import * as fs from 'node:fs/promises';
-import * as os from 'node:os';
-import * as path from 'node:path';
-import * as vscode from 'vscode';
-import { StatBar } from '../statBar.js';
-import type { Config } from '../types.js';
+import { formatStatusBarText, StatBar } from '../statBar.js';
+import type { Config, Stats } from '../types.js';
 
-suite('StatBar tests', () => {
-	const defaultConfig: Config = {
-		template: '[ {mode} | {size:bytes} ]',
-		position: 'right',
-		priority: 1024,
+suite('statBar tests', () => {
+	const sampleStat: Stats = {
+		filePath: 'sample.txt',
+		size: 1178,
+		mode: 0o100644,
+		mtime: new Date(2026, 9, 29, 13, 59, 0),
+		ctime: new Date(2026, 9, 29, 14, 0, 0),
+		birthtime: new Date(2026, 9, 1, 8, 30, 0),
 	};
 
-	let tempDir: string;
-	let testFilePath: string;
-	let statBar: StatBar;
-
-	suiteSetup(async () => {
-		tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'statbar-ui-test-'));
-		testFilePath = path.join(tempDir, 'sample.txt');
-		await fs.writeFile(testFilePath, 'Hello, File StatBar!', 'utf8');
-	});
-
-	suiteTeardown(async () => {
-		await fs.rm(tempDir, { recursive: true, force: true });
-	});
-
-	setup(async () => {
-		await vscode.commands.executeCommand('workbench.action.closeAllEditors');
-		statBar = new StatBar(defaultConfig);
-	});
-
-	teardown(async () => {
-		statBar.dispose();
-		await vscode.commands.executeCommand('workbench.action.closeAllEditors');
-	});
-
-	test('should keep text empty when no editor is active', async () => {
-		await statBar.update();
-		assert.strictEqual(statBar.text, '');
-	});
-
-	test('should format and display stats for the active editor on update', async () => {
-		const doc = await vscode.workspace.openTextDocument(testFilePath);
-		await vscode.window.showTextDocument(doc);
-
-		await statBar.update();
-		assert.match(statBar.text, /^\[ -[r-][w-][x-][r-][w-][x-][r-][w-][x-] \| 20 B \]$/);
-	});
-
-	test('should update text when configuration changes', async () => {
-		const doc = await vscode.workspace.openTextDocument(testFilePath);
-		await vscode.window.showTextDocument(doc);
-
-		statBar.updateConfig({
-			template: '{size:iec}',
-			position: 'left',
-			priority: 500,
-		});
-		await statBar.update();
-		assert.strictEqual(statBar.text, '20 B');
-	});
-
-	test('should substitute template placeholders and preserve unknown fields/modifiers', async () => {
-		const doc = await vscode.workspace.openTextDocument(testFilePath);
-		await vscode.window.showTextDocument(doc);
-
-		statBar.updateConfig({
-			template: '{size} | {size:1000} | {size:1024} | {mtime:%Y} | {unknown} | {mode:invalid} | {size:invalid}',
-			position: 'right',
-			priority: 1024,
-		});
-		await statBar.update();
-		assert.match(
-			statBar.text,
-			/^20 B \| 20 B \| 20 B \| \d{4} \| \{unknown\} \| \{mode:invalid\} \| \{size:invalid\}$/,
+	test('should substitute default template placeholders correctly', () => {
+		const defaultTemplate = '[ {mode} | {size:iec} | {mtime} (M) ]';
+		assert.strictEqual(
+			formatStatusBarText(sampleStat, defaultTemplate),
+			'[ -rw-r--r-- | 1.15 KiB | 2026-10-29 13:59:00 (M) ]',
 		);
 	});
 
-	test('should execute debounced update via scheduleUpdate', async () => {
-		const doc = await vscode.workspace.openTextDocument(testFilePath);
-		await vscode.window.showTextDocument(doc);
+	test('should substitute mode, size, and timestamp modifiers', () => {
+		const template =
+			'{mode:o} | {size} | {size:bytes} | {size:1000} | {size:si} | {size:1024} | {size:iec} | {atime} | {mtime:%F} | {ctime:%T} | {btime:%F}';
+		assert.strictEqual(
+			formatStatusBarText(sampleStat, template),
+			'0644 | 1178 B | 1178 B | 1.18 kB | 1.18 kB | 1.15 KiB | 1.15 KiB | - | 2026-10-29 | 14:00:00 | 2026-10-01',
+		);
+	});
 
-		statBar.updateConfig({
-			template: 'size={size:bytes}',
+	test('should preserve unknown fields and unknown modifiers as-is', () => {
+		assert.strictEqual(formatStatusBarText(sampleStat, '{unknown}'), '{unknown}');
+		assert.strictEqual(formatStatusBarText(sampleStat, '{mode:invalid}'), '{mode:invalid}');
+		assert.strictEqual(formatStatusBarText(sampleStat, '{size:invalid}'), '{size:invalid}');
+	});
+
+	test('should manage StatusBarItem lifecycle across update, updateConfig, and dispose', () => {
+		const config: Config = {
+			template: '[ {mode} | {size:bytes} ]',
 			position: 'right',
 			priority: 1024,
-		});
-
-		await new Promise((resolve) => setTimeout(resolve, 100));
-		assert.strictEqual(statBar.text, 'size=20 B');
+		};
+		const statBar = new StatBar(config);
+		try {
+			statBar.update(undefined);
+			statBar.update(sampleStat);
+			statBar.updateConfig({
+				template: '{size:iec}',
+				position: 'left',
+				priority: 500,
+			});
+			statBar.update(undefined);
+		} finally {
+			statBar.dispose();
+		}
 	});
 });

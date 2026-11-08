@@ -1,54 +1,19 @@
 import * as vscode from 'vscode';
 import { formatFileSize, formatMode, formatStrftime } from './formatter.js';
-import { getActiveUri, getStat } from './stat.js';
 import type { Config, Stats } from './types.js';
 
-const DEBOUNCE_DELAY_MS = 50;
-
 export class StatBar implements vscode.Disposable {
-	private statusBarItem: vscode.StatusBarItem;
-	private debounceTimer?: NodeJS.Timeout;
-	private readonly logChannel?: vscode.LogOutputChannel;
+	private item: vscode.StatusBarItem;
 	private config: Config;
-	private isDisposed = false;
-	private updateGeneration = 0;
+	private stat?: Stats;
 
-	constructor(config: Config, logChannel?: vscode.LogOutputChannel) {
+	constructor(config: Config) {
 		this.config = config;
-		this.logChannel = logChannel;
-		this.statusBarItem = createStatusBarItem(this.config);
-	}
-
-	public get text(): string {
-		return this.statusBarItem.text;
+		this.item = createStatusBarItem(this.config);
 	}
 
 	public dispose(): void {
-		this.isDisposed = true;
-		if (this.debounceTimer) {
-			clearTimeout(this.debounceTimer);
-			this.debounceTimer = undefined;
-		}
-		this.statusBarItem.dispose();
-	}
-
-	public scheduleUpdate(): void {
-		if (this.isDisposed) {
-			return;
-		}
-
-		++this.updateGeneration;
-
-		if (this.debounceTimer) {
-			clearTimeout(this.debounceTimer);
-		}
-
-		this.debounceTimer = setTimeout(() => {
-			this.debounceTimer = undefined;
-			this.update().catch((err) => {
-				this.logChannel?.error(`Update failed: ${String(err)}`);
-			});
-		}, DEBOUNCE_DELAY_MS);
+		this.item.dispose();
 	}
 
 	public updateConfig(newConfig: Config): void {
@@ -56,58 +21,27 @@ export class StatBar implements vscode.Disposable {
 		this.config = newConfig;
 
 		if (recreate) {
-			this.statusBarItem.dispose();
-			this.statusBarItem = createStatusBarItem(this.config);
+			this.item.dispose();
+			this.item = createStatusBarItem(this.config);
 		}
 
-		this.scheduleUpdate();
+		this.update(this.stat);
 	}
 
-	public async update(): Promise<void> {
-		if (this.isDisposed) {
-			return;
-		}
-
-		if (this.debounceTimer) {
-			clearTimeout(this.debounceTimer);
-			this.debounceTimer = undefined;
-		}
-
-		const generation = ++this.updateGeneration;
-		const uri = getActiveUri();
-		if (!uri) {
-			this.statusBarItem.hide();
-			return;
-		}
-
-		const stat = await getStat(uri, (msg) => this.logChannel?.warn(msg));
-		if (this.isDisposed || generation !== this.updateGeneration) {
-			return;
-		}
-
+	public update(stat?: Stats): void {
+		this.stat = stat;
 		if (!stat) {
-			this.statusBarItem.hide();
+			this.item.text = '';
+			this.item.hide();
 			return;
 		}
 
-		this.statusBarItem.text = formatStatusBarText(stat, this.config.template);
-		this.statusBarItem.show();
+		this.item.text = formatStatusBarText(stat, this.config.template);
+		this.item.show();
 	}
 }
 
-function createStatusBarItem(config: Config): vscode.StatusBarItem {
-	const isLeft = config.position === 'left';
-	const alignment = isLeft ? vscode.StatusBarAlignment.Left : vscode.StatusBarAlignment.Right;
-
-	// On left alignment, negate priority so larger values place the item closer to center.
-	const priority = isLeft ? -config.priority : config.priority;
-
-	const item = vscode.window.createStatusBarItem('file-statbar.item', alignment, priority);
-	item.name = 'File StatBar';
-	return item;
-}
-
-function formatStatusBarText(stat: Stats, template: string): string {
+export function formatStatusBarText(stat: Stats, template: string): string {
 	return template.replace(/\{([a-zA-Z]+)(?::([^}]+))?\}/g, (match, field: string, modifier?: string) => {
 		switch (field) {
 			case 'mode':
@@ -139,4 +73,16 @@ function formatStatusBarText(stat: Stats, template: string): string {
 				return match;
 		}
 	});
+}
+
+function createStatusBarItem(config: Config): vscode.StatusBarItem {
+	const isLeft = config.position === 'left';
+	const alignment = isLeft ? vscode.StatusBarAlignment.Left : vscode.StatusBarAlignment.Right;
+
+	// On left alignment, negate priority so larger values place the item closer to center.
+	const priority = isLeft ? -config.priority : config.priority;
+
+	const item = vscode.window.createStatusBarItem('file-statbar.item', alignment, priority);
+	item.name = 'File StatBar';
+	return item;
 }

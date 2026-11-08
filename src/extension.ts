@@ -1,23 +1,29 @@
 import * as vscode from 'vscode';
-import { getActiveUri } from './stat.js';
+import { getActiveUri, getStat } from './stat.js';
 import { StatBar } from './statBar.js';
 import type { Config, Position } from './types.js';
 
 const DEFAULT_TEMPLATE = '[ {mode} | {size:iec} | {mtime} (M) ]';
 const DEFAULT_POSITION: Position = 'right';
 const DEFAULT_PRIORITY = 1024;
+const UPDATE_DELAY_MS = 10;
 
 export function activate(context: vscode.ExtensionContext): void {
 	const logChannel = vscode.window.createOutputChannel('File StatBar', { log: true });
-	const statBar = new StatBar(loadConfig(), logChannel);
+	const statBar = new StatBar(loadConfig());
+
+	const updateTimer = setTimeout(async () => {
+		const uri = getActiveUri();
+		const stat = uri ? await getStat(uri, (msg) => logChannel.warn(msg)) : undefined;
+		statBar.update(stat);
+	}, UPDATE_DELAY_MS);
 
 	context.subscriptions.push(
 		logChannel,
 		statBar,
+		new vscode.Disposable(() => clearTimeout(updateTimer)),
 		vscode.commands.registerCommand('file-statbar.refresh', () => {
-			statBar.update().catch((err) => {
-				logChannel.error(`Manual refresh failed: ${String(err)}`);
-			});
+			updateTimer.refresh();
 		}),
 		vscode.workspace.onDidChangeConfiguration((e) => {
 			if (e.affectsConfiguration('file-statbar')) {
@@ -26,23 +32,21 @@ export function activate(context: vscode.ExtensionContext): void {
 		}),
 		vscode.workspace.onDidSaveTextDocument((doc) => {
 			if (doc.uri.toString() === getActiveUri()?.toString()) {
-				statBar.scheduleUpdate();
+				updateTimer.refresh();
 			}
 		}),
 		vscode.window.tabGroups.onDidChangeTabs(() => {
-			statBar.scheduleUpdate();
+			updateTimer.refresh();
 		}),
 		vscode.window.tabGroups.onDidChangeTabGroups(() => {
-			statBar.scheduleUpdate();
+			updateTimer.refresh();
 		}),
 		vscode.window.onDidChangeWindowState((state) => {
 			if (state.focused) {
-				statBar.scheduleUpdate();
+				updateTimer.refresh();
 			}
 		}),
 	);
-
-	statBar.scheduleUpdate();
 }
 
 export function deactivate(): void {}
