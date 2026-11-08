@@ -11,17 +11,25 @@ const UPDATE_DELAY_MS = 10;
 export function activate(context: vscode.ExtensionContext): void {
 	const logChannel = vscode.window.createOutputChannel('File StatBar', { log: true });
 	const statBar = new StatBar(loadConfig());
+	let latestGeneration = 0;
 
 	const updateTimer = setTimeout(async () => {
+		const generation = ++latestGeneration;
 		const uri = getActiveUri();
 		const stat = uri ? await getStat(uri, (msg) => logChannel.warn(msg)) : undefined;
+		if (generation !== latestGeneration) {
+			return;
+		}
 		statBar.update(stat);
 	}, UPDATE_DELAY_MS);
 
 	context.subscriptions.push(
 		logChannel,
 		statBar,
-		new vscode.Disposable(() => clearTimeout(updateTimer)),
+		new vscode.Disposable(() => {
+			latestGeneration++;
+			clearTimeout(updateTimer);
+		}),
 		vscode.commands.registerCommand('file-statbar.refresh', () => {
 			updateTimer.refresh();
 		}),
