@@ -25,19 +25,16 @@ export function getActiveUri(): vscode.Uri | undefined {
 	return undefined;
 }
 
-export async function getStat(
-	target: vscode.Uri | string,
-	logError?: (msg: string) => void,
-): Promise<Stats | undefined> {
+export async function getStat(target: vscode.Uri | string, log?: (msg: string) => void): Promise<Stats | undefined> {
 	const uri = typeof target === 'string' ? vscode.Uri.file(target) : target;
 	if (uri.scheme === 'file') {
-		return getLocalStat(uri, logError);
+		return getLocalStat(uri, log);
 	}
 
-	return getVirtualStat(uri, logError);
+	return getVirtualStat(uri, log);
 }
 
-async function getLocalStat(uri: vscode.Uri, logError?: (msg: string) => void): Promise<Stats | undefined> {
+async function getLocalStat(uri: vscode.Uri, log?: (msg: string) => void): Promise<Stats | undefined> {
 	const { fsPath } = uri;
 
 	try {
@@ -48,7 +45,7 @@ async function getLocalStat(uri: vscode.Uri, logError?: (msg: string) => void): 
 			try {
 				symlinkTarget = await fs.readlink(fsPath);
 			} catch (err) {
-				logError?.(`Failed to read symlink target for ${fsPath}: ${String(err)}`);
+				log?.(`Failed to read symlink target for ${fsPath}: ${String(err)}`);
 			}
 		}
 
@@ -78,35 +75,35 @@ async function getLocalStat(uri: vscode.Uri, logError?: (msg: string) => void): 
 			symlinkTarget,
 		};
 	} catch (err) {
-		logError?.(`Failed to stat local file ${fsPath}: ${String(err)}`);
+		log?.(`Failed to stat local file ${fsPath}: ${String(err)}`);
 		return undefined;
 	}
 }
 
-async function getVirtualStat(uri: vscode.Uri, logError?: (msg: string) => void): Promise<Stats | undefined> {
+async function getVirtualStat(uri: vscode.Uri, log?: (msg: string) => void): Promise<Stats | undefined> {
 	try {
-		const vStat = await vscode.workspace.fs.stat(uri);
-		const isReadonly = Boolean(vStat.permissions && vStat.permissions & vscode.FilePermission.Readonly);
+		const stat = await vscode.workspace.fs.stat(uri);
+		const isReadonly = Boolean(stat.permissions && stat.permissions & vscode.FilePermission.Readonly);
 
 		let mode: number | undefined;
-		if ((vStat.type & vscode.FileType.SymbolicLink) !== 0) {
+		if ((stat.type & vscode.FileType.SymbolicLink) !== 0) {
 			mode = 0o120777;
-		} else if ((vStat.type & vscode.FileType.Directory) !== 0) {
+		} else if ((stat.type & vscode.FileType.Directory) !== 0) {
 			mode = isReadonly ? 0o040555 : 0o040755;
-		} else if ((vStat.type & vscode.FileType.File) !== 0) {
+		} else if ((stat.type & vscode.FileType.File) !== 0) {
 			mode = isReadonly ? 0o100444 : 0o100644;
 		}
 
 		return {
 			mode,
-			size: vStat.size,
-			mtime: vStat.mtime > 0 ? new Date(vStat.mtime) : undefined,
+			size: stat.size,
+			mtime: stat.mtime > 0 ? new Date(stat.mtime) : undefined,
 			// vscode.FileStat.ctime is file creation time in VS Code API, not POSIX status change time.
-			birthtime: vStat.ctime > 0 ? new Date(vStat.ctime) : undefined,
+			birthtime: stat.ctime > 0 ? new Date(stat.ctime) : undefined,
 			filePath: resolveFilePath(uri),
 		};
 	} catch (err) {
-		logError?.(`Failed to stat virtual file ${uri.toString()}: ${String(err)}`);
+		log?.(`Failed to stat virtual file ${uri.toString()}: ${String(err)}`);
 		return undefined;
 	}
 }

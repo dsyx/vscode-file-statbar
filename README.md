@@ -73,7 +73,7 @@ All timestamp placeholders support ISO 8601-compatible `strftime` numeric format
 | `%z`             | Timezone offset (+HHMM or -HHMM)                       | `+0800`                           |
 | `%F`, `%T`, `%R` | Shortcuts for `%Y-%m-%d`, `%H:%M:%S`, `%H:%M`          | `2026-11-05`, `14:30:45`, `14:30` |
 
-Literal characters inside the modifier pattern (such as spaces, dashes, or custom tags) are preserved as-is.
+Literal characters inside the modifier pattern (such as spaces, dashes, or custom tags) are preserved as-is (use `%%` to escape a literal `%`).
 
 ## Commands
 

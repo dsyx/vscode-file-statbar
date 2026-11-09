@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { formatFileSize, formatMode, formatStrftime } from './formatter.js';
+import { formatMode, formatSize, formatStrftime } from './formatter.js';
 import type { Config, Stats } from './types.js';
 
 export class StatBar implements vscode.Disposable {
@@ -9,11 +9,23 @@ export class StatBar implements vscode.Disposable {
 
 	constructor(config: Config) {
 		this.config = config;
-		this.item = createStatusBarItem(this.config);
+		this.item = createItem(this.config);
 	}
 
 	public dispose(): void {
 		this.item.dispose();
+	}
+
+	public get text(): string {
+		return this.item.text;
+	}
+
+	public get alignment(): vscode.StatusBarAlignment {
+		return this.item.alignment;
+	}
+
+	public get priority(): number | undefined {
+		return this.item.priority;
 	}
 
 	public updateConfig(newConfig: Config): void {
@@ -22,7 +34,7 @@ export class StatBar implements vscode.Disposable {
 
 		if (recreate) {
 			this.item.dispose();
-			this.item = createStatusBarItem(this.config);
+			this.item = createItem(this.config);
 		}
 
 		this.update(this.stat);
@@ -36,12 +48,12 @@ export class StatBar implements vscode.Disposable {
 			return;
 		}
 
-		this.item.text = formatStatusBarText(stat, this.config.template);
+		this.item.text = renderTemplate(stat, this.config.template);
 		this.item.show();
 	}
 }
 
-export function formatStatusBarText(stat: Stats, template: string): string {
+export function renderTemplate(stat: Stats, template: string): string {
 	return template.replace(/\{([a-zA-Z]+)(?::([^}]+))?\}/g, (match, field: string, modifier?: string) => {
 		switch (field) {
 			case 'mode':
@@ -50,13 +62,13 @@ export function formatStatusBarText(stat: Stats, template: string): string {
 				switch (modifier) {
 					case undefined:
 					case 'bytes':
-						return formatFileSize(stat.size, 'bytes');
+						return formatSize(stat.size, 'bytes');
 					case '1000':
 					case 'si':
-						return formatFileSize(stat.size, 'si');
+						return formatSize(stat.size, 'si');
 					case '1024':
 					case 'iec':
-						return formatFileSize(stat.size, 'iec');
+						return formatSize(stat.size, 'iec');
 					default:
 						return match;
 				}
@@ -75,7 +87,7 @@ export function formatStatusBarText(stat: Stats, template: string): string {
 	});
 }
 
-function createStatusBarItem(config: Config): vscode.StatusBarItem {
+function createItem(config: Config): vscode.StatusBarItem {
 	const isLeft = config.position === 'left';
 	const alignment = isLeft ? vscode.StatusBarAlignment.Left : vscode.StatusBarAlignment.Right;
 

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { formatFileSize, formatMode, formatOctalMode, formatStrftime, formatSymbolicMode } from '../formatter.js';
+import { formatMode, formatOctalMode, formatSize, formatStrftime, formatSymbolicMode } from '../formatter.js';
 
 suite('formatter tests', () => {
 	suite('mode formatting', () => {
@@ -49,7 +49,7 @@ suite('formatter tests', () => {
 		});
 
 		test('should return "-" for undefined or invalid mode across all modifiers', () => {
-			for (const invalid of [undefined, Number.NaN, -1, Number.POSITIVE_INFINITY]) {
+			for (const invalid of [undefined, Number.NaN, -1, 1.5, Number.POSITIVE_INFINITY]) {
 				assert.strictEqual(formatSymbolicMode(invalid), '-');
 				assert.strictEqual(formatOctalMode(invalid), '-');
 				assert.strictEqual(formatMode(invalid), '-');
@@ -64,37 +64,37 @@ suite('formatter tests', () => {
 
 	suite('size formatting', () => {
 		test('should format raw bytes by default and explicitly', () => {
-			assert.strictEqual(formatFileSize(0), '0 B');
-			assert.strictEqual(formatFileSize(1178), '1178 B');
-			assert.strictEqual(formatFileSize(1178, 'bytes'), '1178 B');
+			assert.strictEqual(formatSize(0), '0 B');
+			assert.strictEqual(formatSize(1178), '1178 B');
+			assert.strictEqual(formatSize(1178, 'bytes'), '1178 B');
 		});
 
 		test('should format metric size (SI 1000-based) with lowercase kB', () => {
-			assert.strictEqual(formatFileSize(0, 'si'), '0 B');
-			assert.strictEqual(formatFileSize(500, 'si'), '500 B');
-			assert.strictEqual(formatFileSize(1000, 'si'), '1.00 kB');
-			assert.strictEqual(formatFileSize(1178, 'si'), '1.18 kB');
-			assert.strictEqual(formatFileSize(1_000_000, 'si'), '1.00 MB');
+			assert.strictEqual(formatSize(0, 'si'), '0 B');
+			assert.strictEqual(formatSize(500, 'si'), '500 B');
+			assert.strictEqual(formatSize(1000, 'si'), '1.00 kB');
+			assert.strictEqual(formatSize(1178, 'si'), '1.18 kB');
+			assert.strictEqual(formatSize(1_000_000, 'si'), '1.00 MB');
 		});
 
 		test('should format binary size (IEC 1024-based)', () => {
-			assert.strictEqual(formatFileSize(0, 'iec'), '0 B');
-			assert.strictEqual(formatFileSize(512, 'iec'), '512 B');
-			assert.strictEqual(formatFileSize(1024, 'iec'), '1.00 KiB');
-			assert.strictEqual(formatFileSize(1178, 'iec'), '1.15 KiB');
-			assert.strictEqual(formatFileSize(1024 * 1024, 'iec'), '1.00 MiB');
-			assert.strictEqual(formatFileSize(1024 * 1024 * 1024, 'iec'), '1.00 GiB');
+			assert.strictEqual(formatSize(0, 'iec'), '0 B');
+			assert.strictEqual(formatSize(512, 'iec'), '512 B');
+			assert.strictEqual(formatSize(1024, 'iec'), '1.00 KiB');
+			assert.strictEqual(formatSize(1178, 'iec'), '1.15 KiB');
+			assert.strictEqual(formatSize(1024 * 1024, 'iec'), '1.00 MiB');
+			assert.strictEqual(formatSize(1024 * 1024 * 1024, 'iec'), '1.00 GiB');
 		});
 
 		test('should correctly rollover when toFixed(2) rounds up to base', () => {
-			assert.strictEqual(formatFileSize(999_999, 'si'), '1.00 MB');
-			assert.strictEqual(formatFileSize(1_048_575, 'iec'), '1.00 MiB');
+			assert.strictEqual(formatSize(999_999, 'si'), '1.00 MB');
+			assert.strictEqual(formatSize(1_048_575, 'iec'), '1.00 MiB');
 		});
 
 		test('should return "-" for undefined, negative, or non-finite bytes', () => {
-			assert.strictEqual(formatFileSize(undefined), '-');
-			assert.strictEqual(formatFileSize(-1), '-');
-			assert.strictEqual(formatFileSize(Number.NaN, 'iec'), '-');
+			assert.strictEqual(formatSize(undefined), '-');
+			assert.strictEqual(formatSize(-1), '-');
+			assert.strictEqual(formatSize(Number.NaN, 'iec'), '-');
 		});
 	});
 

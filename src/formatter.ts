@@ -90,7 +90,7 @@ export function formatOctalMode(mode?: number): string {
 	return permBits.toString(8).padStart(4, '0');
 }
 
-export function formatFileSize(bytes?: number, format: FileSizeFormat = 'bytes'): string {
+export function formatSize(bytes?: number, format: FileSizeFormat = 'bytes'): string {
 	if (bytes === undefined || !Number.isFinite(bytes) || bytes < 0) {
 		return '-';
 	}
@@ -198,7 +198,7 @@ export function formatStrftime(date?: Date, pattern = '%Y-%m-%d %H:%M:%S'): stri
 }
 
 function isValidMode(mode?: number): mode is number {
-	return mode !== undefined && Number.isFinite(mode) && mode >= 0;
+	return mode !== undefined && Number.isInteger(mode) && mode >= 0;
 }
 
 function getFileTypeChar(mode: number): string {

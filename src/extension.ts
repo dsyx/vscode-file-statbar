@@ -9,14 +9,14 @@ const DEFAULT_PRIORITY = 1024;
 const UPDATE_DELAY_MS = 10;
 
 export function activate(context: vscode.ExtensionContext): void {
-	const logChannel = vscode.window.createOutputChannel('File StatBar', { log: true });
+	const log = vscode.window.createOutputChannel('File StatBar', { log: true });
 	const statBar = new StatBar(loadConfig());
 	let latestGeneration = 0;
 
 	const updateTimer = setTimeout(async () => {
 		const generation = ++latestGeneration;
 		const uri = getActiveUri();
-		const stat = uri ? await getStat(uri, (msg) => logChannel.warn(msg)) : undefined;
+		const stat = uri ? await getStat(uri, (msg) => log.warn(msg)) : undefined;
 		if (generation !== latestGeneration) {
 			return;
 		}
@@ -24,7 +24,7 @@ export function activate(context: vscode.ExtensionContext): void {
 	}, UPDATE_DELAY_MS);
 
 	context.subscriptions.push(
-		logChannel,
+		log,
 		statBar,
 		new vscode.Disposable(() => {
 			latestGeneration++;
@@ -40,6 +40,11 @@ export function activate(context: vscode.ExtensionContext): void {
 		}),
 		vscode.workspace.onDidSaveTextDocument((doc) => {
 			if (doc.uri.toString() === getActiveUri()?.toString()) {
+				updateTimer.refresh();
+			}
+		}),
+		vscode.workspace.onDidSaveNotebookDocument((notebook) => {
+			if (notebook.uri.toString() === getActiveUri()?.toString()) {
 				updateTimer.refresh();
 			}
 		}),

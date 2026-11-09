@@ -65,7 +65,7 @@
 					"description": "Status bar position."
 				},
 				"file-statbar.priority": {
-					"type": "integer",
+					"type": "number",
 					"default": 1024,
 					"description": "Status bar priority."
 				}
