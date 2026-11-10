@@ -34,6 +34,9 @@ suite('statBar tests', () => {
 		assert.strictEqual(renderTemplate(sampleStat, '{unknown}'), '{unknown}');
 		assert.strictEqual(renderTemplate(sampleStat, '{mode:invalid}'), '{mode:invalid}');
 		assert.strictEqual(renderTemplate(sampleStat, '{size:invalid}'), '{size:invalid}');
+		const statWithoutMode: Stats = { ...sampleStat, mode: undefined };
+		assert.strictEqual(renderTemplate(statWithoutMode, '{mode:invalid}'), '{mode:invalid}');
+		assert.strictEqual(renderTemplate(statWithoutMode, '{mode}'), '-');
 	});
 
 	test('should manage StatusBarItem lifecycle across update, updateConfig, and dispose', () => {

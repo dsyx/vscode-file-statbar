@@ -26,73 +26,72 @@ const S_IROTH = 0o000004;
 const S_IWOTH = 0o000002;
 const S_IXOTH = 0o000001;
 
+const FILE_TYPE_CHARS: Readonly<Record<number, string>> = {
+	[S_IFSOCK]: 's',
+	[S_IFLNK]: 'l',
+	[S_IFREG]: '-',
+	[S_IFBLK]: 'b',
+	[S_IFDIR]: 'd',
+	[S_IFCHR]: 'c',
+	[S_IFIFO]: 'p',
+};
+
 const SI_UNITS = ['B', 'kB', 'MB', 'GB', 'TB', 'PB', 'EB'] as const;
 const IEC_UNITS = ['B', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB', 'EiB'] as const;
 
 export type FileSizeFormat = 'bytes' | 'si' | 'iec';
 
 export function formatMode(mode?: number, modifier?: string): string | undefined {
-	if (!modifier) {
-		return formatSymbolicMode(mode);
+	if (mode === undefined || !Number.isInteger(mode) || mode < 0) {
+		return undefined;
 	}
+
+	const bits = mode & 0xffff;
 	switch (modifier) {
-		case 'b':
-			return isValidMode(mode) ? (mode & 0xffff).toString(2).padStart(16, '0') : '-';
+		case undefined: {
+			const typeChar = FILE_TYPE_CHARS[mode & S_IFMT] ?? '-';
+
+			const userR = mode & S_IRUSR ? 'r' : '-';
+			const userW = mode & S_IWUSR ? 'w' : '-';
+			let userX = mode & S_IXUSR ? 'x' : '-';
+			if (mode & S_ISUID) {
+				userX = userX === 'x' ? 's' : 'S';
+			}
+
+			const groupR = mode & S_IRGRP ? 'r' : '-';
+			const groupW = mode & S_IWGRP ? 'w' : '-';
+			let groupX = mode & S_IXGRP ? 'x' : '-';
+			if (mode & S_ISGID) {
+				groupX = groupX === 'x' ? 's' : 'S';
+			}
+
+			const otherR = mode & S_IROTH ? 'r' : '-';
+			const otherW = mode & S_IWOTH ? 'w' : '-';
+			let otherX = mode & S_IXOTH ? 'x' : '-';
+			if (mode & S_ISVTX) {
+				otherX = otherX === 'x' ? 't' : 'T';
+			}
+
+			return `${typeChar}${userR}${userW}${userX}${groupR}${groupW}${groupX}${otherR}${otherW}${otherX}`;
+		}
 		case 'o':
-			return formatOctalMode(mode);
+			return (mode & (S_ISUID | S_ISGID | S_ISVTX | S_IRWXU | S_IRWXG | S_IRWXO)).toString(8).padStart(4, '0');
+		case 'b':
+			return bits.toString(2).padStart(16, '0');
 		case 'd':
-			return isValidMode(mode) ? (mode & 0xffff).toString(10) : '-';
+			return bits.toString(10);
 		case 'x':
-			return isValidMode(mode) ? (mode & 0xffff).toString(16).padStart(4, '0') : '-';
+			return bits.toString(16).padStart(4, '0');
 		case 'X':
-			return isValidMode(mode) ? (mode & 0xffff).toString(16).toUpperCase().padStart(4, '0') : '-';
+			return bits.toString(16).toUpperCase().padStart(4, '0');
 		default:
 			return undefined;
 	}
 }
 
-export function formatSymbolicMode(mode?: number): string {
-	if (!isValidMode(mode)) {
-		return '-';
-	}
-
-	const typeChar = getFileTypeChar(mode);
-
-	const userR = mode & S_IRUSR ? 'r' : '-';
-	const userW = mode & S_IWUSR ? 'w' : '-';
-	let userX = mode & S_IXUSR ? 'x' : '-';
-	if (mode & S_ISUID) {
-		userX = userX === 'x' ? 's' : 'S';
-	}
-
-	const groupR = mode & S_IRGRP ? 'r' : '-';
-	const groupW = mode & S_IWGRP ? 'w' : '-';
-	let groupX = mode & S_IXGRP ? 'x' : '-';
-	if (mode & S_ISGID) {
-		groupX = groupX === 'x' ? 's' : 'S';
-	}
-
-	const otherR = mode & S_IROTH ? 'r' : '-';
-	const otherW = mode & S_IWOTH ? 'w' : '-';
-	let otherX = mode & S_IXOTH ? 'x' : '-';
-	if (mode & S_ISVTX) {
-		otherX = otherX === 'x' ? 't' : 'T';
-	}
-
-	return `${typeChar}${userR}${userW}${userX}${groupR}${groupW}${groupX}${otherR}${otherW}${otherX}`;
-}
-
-export function formatOctalMode(mode?: number): string {
-	if (!isValidMode(mode)) {
-		return '-';
-	}
-	const permBits = mode & (S_ISUID | S_ISGID | S_ISVTX | S_IRWXU | S_IRWXG | S_IRWXO);
-	return permBits.toString(8).padStart(4, '0');
-}
-
-export function formatSize(bytes?: number, format: FileSizeFormat = 'bytes'): string {
+export function formatSize(bytes?: number, format: FileSizeFormat = 'bytes'): string | undefined {
 	if (bytes === undefined || !Number.isFinite(bytes) || bytes < 0) {
-		return '-';
+		return undefined;
 	}
 
 	if (format === 'bytes') {
@@ -124,11 +123,15 @@ export function formatSize(bytes?: number, format: FileSizeFormat = 'bytes'): st
 	return `${value.toFixed(2)} ${units[unitIndex]}`;
 }
 
-export function formatStrftime(date?: Date, pattern = '%Y-%m-%d %H:%M:%S'): string {
+export function formatStrftime(date?: Date, pattern = '%Y-%m-%d %H:%M:%S'): string | undefined {
 	if (!date || Number.isNaN(date.getTime())) {
-		return '-';
+		return undefined;
 	}
 
+	return strftime(date, pattern);
+}
+
+function strftime(date: Date, pattern: string): string {
 	let cachedDayOfYear: number | undefined;
 	const dayOfYear = (): number => {
 		cachedDayOfYear ??= getDayOfYear(date);
@@ -148,23 +151,23 @@ export function formatStrftime(date?: Date, pattern = '%Y-%m-%d %H:%M:%S'): stri
 			case '%y':
 				return String(date.getFullYear()).slice(-2);
 			case '%C':
-				return String(Math.floor(date.getFullYear() / 100)).padStart(2, '0');
+				return zeroPad(Math.floor(date.getFullYear() / 100));
 			case '%m':
-				return String(date.getMonth() + 1).padStart(2, '0');
+				return zeroPad(date.getMonth() + 1);
 			case '%d':
-				return String(date.getDate()).padStart(2, '0');
+				return zeroPad(date.getDate());
 			case '%e':
 				return String(date.getDate()).padStart(2, ' ');
 			case '%j':
-				return String(dayOfYear()).padStart(3, '0');
+				return zeroPad(dayOfYear(), 3);
 			case '%H':
-				return String(date.getHours()).padStart(2, '0');
+				return zeroPad(date.getHours());
 			case '%I':
-				return String(date.getHours() % 12 || 12).padStart(2, '0');
+				return zeroPad(date.getHours() % 12 || 12);
 			case '%M':
-				return String(date.getMinutes()).padStart(2, '0');
+				return zeroPad(date.getMinutes());
 			case '%S':
-				return String(date.getSeconds()).padStart(2, '0');
+				return zeroPad(date.getSeconds());
 			case '%s':
 				return String(Math.floor(date.getTime() / 1000));
 			case '%u':
@@ -172,23 +175,23 @@ export function formatStrftime(date?: Date, pattern = '%Y-%m-%d %H:%M:%S'): stri
 			case '%w':
 				return String(date.getDay());
 			case '%V':
-				return String(iso().week).padStart(2, '0');
+				return zeroPad(iso().week);
 			case '%G':
 				return String(iso().year);
 			case '%g':
 				return String(iso().year).slice(-2);
 			case '%U':
-				return String(getWeekOfYearSunday(date, dayOfYear())).padStart(2, '0');
+				return zeroPad(getWeekOfYearSunday(date, dayOfYear()));
 			case '%W':
-				return String(getWeekOfYearMonday(date, dayOfYear())).padStart(2, '0');
+				return zeroPad(getWeekOfYearMonday(date, dayOfYear()));
 			case '%z':
 				return formatTimezoneOffset(date);
 			case '%F':
-				return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+				return strftime(date, '%Y-%m-%d');
 			case '%T':
-				return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}:${String(date.getSeconds()).padStart(2, '0')}`;
+				return strftime(date, '%H:%M:%S');
 			case '%R':
-				return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+				return strftime(date, '%H:%M');
 			case '%%':
 				return '%';
 			default:
@@ -197,38 +200,15 @@ export function formatStrftime(date?: Date, pattern = '%Y-%m-%d %H:%M:%S'): stri
 	});
 }
 
-function isValidMode(mode?: number): mode is number {
-	return mode !== undefined && Number.isInteger(mode) && mode >= 0;
-}
-
-function getFileTypeChar(mode: number): string {
-	switch (mode & S_IFMT) {
-		case S_IFSOCK:
-			return 's';
-		case S_IFLNK:
-			return 'l';
-		case S_IFREG:
-			return '-';
-		case S_IFBLK:
-			return 'b';
-		case S_IFDIR:
-			return 'd';
-		case S_IFCHR:
-			return 'c';
-		case S_IFIFO:
-			return 'p';
-		default:
-			return '-';
-	}
+function zeroPad(value: number, width = 2): string {
+	return String(value).padStart(width, '0');
 }
 
 function formatTimezoneOffset(date: Date): string {
 	const offset = -date.getTimezoneOffset();
 	const sign = offset >= 0 ? '+' : '-';
 	const absOffset = Math.abs(offset);
-	const tzHours = String(Math.floor(absOffset / 60)).padStart(2, '0');
-	const tzMinutes = String(absOffset % 60).padStart(2, '0');
-	return `${sign}${tzHours}${tzMinutes}`;
+	return `${sign}${zeroPad(Math.floor(absOffset / 60))}${zeroPad(absOffset % 60)}`;
 }
 
 function getDayOfYear(date: Date): number {

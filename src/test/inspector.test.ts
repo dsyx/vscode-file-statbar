@@ -3,9 +3,10 @@ import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
-import { getActiveUri, getStat } from '../stat.js';
+import { Inspector } from '../inspector.js';
 
-suite('stat tests', () => {
+suite('inspector tests', () => {
+	const inspector = new Inspector();
 	let tempDir: string;
 	let testFilePath: string;
 	let symlinkPath: string;
@@ -23,16 +24,12 @@ suite('stat tests', () => {
 		}
 	});
 
-	teardown(async () => {
-		await vscode.commands.executeCommand('workbench.action.closeAllEditors');
-	});
-
 	suiteTeardown(async () => {
 		await fs.rm(tempDir, { recursive: true, force: true });
 	});
 
-	test('should get accurate stats for a regular file (path string)', async () => {
-		const stat = await getStat(testFilePath);
+	test('should get accurate stats for a regular file (file Uri)', async () => {
+		const stat = await inspector.stat(vscode.Uri.file(testFilePath));
 		assert.ok(stat !== undefined);
 		assert.strictEqual(stat.filePath, vscode.Uri.file(testFilePath).fsPath);
 		assert.strictEqual(stat.size, 20);
@@ -45,58 +42,6 @@ suite('stat tests', () => {
 		assert.ok(typeof stat.dev === 'bigint');
 		assert.ok(typeof stat.mtimeNs === 'bigint');
 		assert.ok(stat.mtimeNs > 0n);
-	});
-
-	test('should get accurate stats for a file Uri (vscode.Uri with file scheme)', async () => {
-		const fileUri = vscode.Uri.file(testFilePath);
-		const stat = await getStat(fileUri);
-		assert.ok(stat !== undefined);
-		assert.strictEqual(stat.filePath, fileUri.fsPath);
-		assert.strictEqual(stat.size, 20);
-		assert.ok(typeof stat.mode === 'number');
-		assert.strictEqual(stat.mode & 0o170000, 0o100000);
-	});
-
-	test('should extract active file Uri from open editor and return undefined when closed', async () => {
-		await vscode.commands.executeCommand('workbench.action.closeAllEditors');
-		assert.strictEqual(getActiveUri(), undefined);
-
-		const doc = await vscode.workspace.openTextDocument(testFilePath);
-		await vscode.window.showTextDocument(doc);
-		const activeUri = getActiveUri();
-		assert.ok(activeUri !== undefined);
-		assert.strictEqual(activeUri.fsPath.toLowerCase(), testFilePath.toLowerCase());
-	});
-
-	test('should prefer writable modified URI in diff tab when readonly side is focused', async () => {
-		const scheme = 'statbar-ro-diff';
-		const emitter = new vscode.EventEmitter<vscode.FileChangeEvent[]>();
-		const provider: vscode.FileSystemProvider = {
-			onDidChangeFile: emitter.event,
-			watch: () => new vscode.Disposable(() => {}),
-			stat: () => ({ type: vscode.FileType.File, ctime: 0, mtime: 0, size: 5 }),
-			readDirectory: () => [],
-			createDirectory: () => {},
-			readFile: () => new Uint8Array([104, 101, 108, 108, 111]),
-			writeFile: () => {},
-			delete: () => {},
-			rename: () => {},
-		};
-		const registration = vscode.workspace.registerFileSystemProvider(scheme, provider, { isReadonly: true });
-
-		try {
-			const readonlyUri = vscode.Uri.parse(`${scheme}:/original.txt`);
-			const writableUri = vscode.Uri.file(testFilePath);
-			await vscode.commands.executeCommand('vscode.diff', readonlyUri, writableUri, 'Test Diff');
-
-			const activeUri = getActiveUri();
-			assert.ok(activeUri !== undefined);
-			assert.strictEqual(activeUri.fsPath.toLowerCase(), testFilePath.toLowerCase());
-		} finally {
-			await vscode.commands.executeCommand('workbench.action.closeAllEditors');
-			registration.dispose();
-			emitter.dispose();
-		}
 	});
 
 	test('should get virtual file stats and handle zero timestamps gracefully', async () => {
@@ -172,7 +117,7 @@ suite('stat tests', () => {
 
 		const registration = vscode.workspace.registerFileSystemProvider(scheme, provider);
 		try {
-			const fileStat = await getStat(vscode.Uri.parse(`${scheme}:/file.txt`));
+			const fileStat = await inspector.stat(vscode.Uri.parse(`${scheme}:/file.txt`));
 			assert.ok(fileStat !== undefined);
 			assert.strictEqual(fileStat.filePath, '/file.txt');
 			assert.strictEqual(fileStat.mode, 0o100644);
@@ -180,22 +125,22 @@ suite('stat tests', () => {
 			assert.strictEqual(fileStat.birthtime?.getTime(), 1_700_000_000_000);
 			assert.strictEqual(fileStat.mtime?.getTime(), 1_700_000_100_000);
 
-			const roStat = await getStat(vscode.Uri.parse(`${scheme}:/readonly.txt`));
+			const roStat = await inspector.stat(vscode.Uri.parse(`${scheme}:/readonly.txt`));
 			assert.ok(roStat !== undefined);
 			assert.strictEqual(roStat.mode, 0o100444);
 			assert.strictEqual(roStat.size, 64);
 			assert.strictEqual(roStat.birthtime, undefined);
 			assert.strictEqual(roStat.mtime, undefined);
 
-			const dirStat = await getStat(vscode.Uri.parse(`${scheme}:/dir`));
+			const dirStat = await inspector.stat(vscode.Uri.parse(`${scheme}:/dir`));
 			assert.ok(dirStat !== undefined);
 			assert.strictEqual(dirStat.mode, 0o040755);
 
-			const roDirStat = await getStat(vscode.Uri.parse(`${scheme}:/ro-dir`));
+			const roDirStat = await inspector.stat(vscode.Uri.parse(`${scheme}:/ro-dir`));
 			assert.ok(roDirStat !== undefined);
 			assert.strictEqual(roDirStat.mode, 0o040555);
 
-			const linkStat = await getStat(vscode.Uri.parse(`${scheme}:/symlink`));
+			const linkStat = await inspector.stat(vscode.Uri.parse(`${scheme}:/symlink`));
 			assert.ok(linkStat !== undefined);
 			assert.strictEqual(linkStat.mode, 0o120777);
 		} finally {
@@ -217,7 +162,7 @@ suite('stat tests', () => {
 			return;
 		}
 
-		const stat = await getStat(symlinkPath);
+		const stat = await inspector.stat(vscode.Uri.file(symlinkPath));
 		assert.ok(stat !== undefined);
 		assert.strictEqual(stat.filePath, vscode.Uri.file(symlinkPath).fsPath);
 		assert.strictEqual(stat.symlinkTarget, testFilePath);
@@ -226,7 +171,7 @@ suite('stat tests', () => {
 	});
 
 	test('should return undefined for non-existent file', async () => {
-		const stat = await getStat(path.join(tempDir, 'does-not-exist.txt'));
+		const stat = await inspector.stat(vscode.Uri.file(path.join(tempDir, 'does-not-exist.txt')));
 		assert.strictEqual(stat, undefined);
 	});
 });

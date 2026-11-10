@@ -2,6 +2,8 @@ import * as vscode from 'vscode';
 import { formatMode, formatSize, formatStrftime } from './formatter.js';
 import type { Config, Stats } from './types.js';
 
+const UNAVAILABLE = '-';
+
 export class StatBar implements vscode.Disposable {
 	private item: vscode.StatusBarItem;
 	private config: Config;
@@ -56,31 +58,42 @@ export class StatBar implements vscode.Disposable {
 export function renderTemplate(stat: Stats, template: string): string {
 	return template.replace(/\{([a-zA-Z]+)(?::([^}]+))?\}/g, (match, field: string, modifier?: string) => {
 		switch (field) {
-			case 'mode':
-				return formatMode(stat.mode, modifier) ?? match;
+			case 'mode': {
+				switch (modifier) {
+					case undefined:
+					case 'o':
+					case 'b':
+					case 'd':
+					case 'x':
+					case 'X':
+						return formatMode(stat.mode, modifier) ?? UNAVAILABLE;
+					default:
+						return match;
+				}
+			}
 			case 'size': {
 				switch (modifier) {
 					case undefined:
 					case 'bytes':
-						return formatSize(stat.size, 'bytes');
+						return formatSize(stat.size, 'bytes') ?? UNAVAILABLE;
 					case '1000':
 					case 'si':
-						return formatSize(stat.size, 'si');
+						return formatSize(stat.size, 'si') ?? UNAVAILABLE;
 					case '1024':
 					case 'iec':
-						return formatSize(stat.size, 'iec');
+						return formatSize(stat.size, 'iec') ?? UNAVAILABLE;
 					default:
 						return match;
 				}
 			}
 			case 'atime':
-				return formatStrftime(stat.atime, modifier);
+				return formatStrftime(stat.atime, modifier) ?? UNAVAILABLE;
 			case 'mtime':
-				return formatStrftime(stat.mtime, modifier);
+				return formatStrftime(stat.mtime, modifier) ?? UNAVAILABLE;
 			case 'ctime':
-				return formatStrftime(stat.ctime, modifier);
+				return formatStrftime(stat.ctime, modifier) ?? UNAVAILABLE;
 			case 'btime':
-				return formatStrftime(stat.birthtime, modifier);
+				return formatStrftime(stat.birthtime, modifier) ?? UNAVAILABLE;
 			default:
 				return match;
 		}
