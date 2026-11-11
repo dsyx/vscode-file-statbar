@@ -32,16 +32,17 @@ suite('formatter tests', () => {
 
 		test('should format binary, octal, decimal, and hex mode modifiers', () => {
 			assert.strictEqual(formatMode(0o100644, 'b'), '1000000110100100');
-			assert.strictEqual(formatMode(0o100644, 'o'), '0644');
-			assert.strictEqual(formatMode(0o100755, 'o'), '0755');
-			assert.strictEqual(formatMode(0o104755, 'o'), '4755');
-			assert.strictEqual(formatMode(0o102755, 'o'), '2755');
-			assert.strictEqual(formatMode(0o041777, 'o'), '1777');
+			assert.strictEqual(formatMode(0o100644, 'o'), '100644');
+			assert.strictEqual(formatMode(0o100755, 'o'), '100755');
+			assert.strictEqual(formatMode(0o104755, 'o'), '104755');
+			assert.strictEqual(formatMode(0o102755, 'o'), '102755');
+			assert.strictEqual(formatMode(0o041777, 'o'), '041777');
 			assert.strictEqual(formatMode(0o100644, 'd'), '33188');
 			assert.strictEqual(formatMode(0o100644, 'x'), '81a4');
 			assert.strictEqual(formatMode(0o100644, 'X'), '81A4');
 
 			assert.strictEqual(formatMode(0o000755, 'b'), '0000000111101101');
+			assert.strictEqual(formatMode(0o000755, 'o'), '000755');
 			assert.strictEqual(formatMode(0o000755, 'x'), '01ed');
 			assert.strictEqual(formatMode(0o000755, 'X'), '01ED');
 			assert.strictEqual(formatMode(0o100644, 'invalid'), undefined);
@@ -98,8 +99,8 @@ suite('formatter tests', () => {
 	suite('timestamp formatting', () => {
 		const fixedDate = new Date(2026, 9, 29, 13, 59, 26, 557);
 
-		test('should format with default pattern %Y-%m-%d %H:%M:%S', () => {
-			assert.strictEqual(formatStrftime(fixedDate), '2026-10-29 13:59:26');
+		test('should format with pattern %Y-%m-%d %H:%M:%S', () => {
+			assert.strictEqual(formatStrftime(fixedDate, '%Y-%m-%d %H:%M:%S'), '2026-10-29 13:59:26');
 		});
 
 		test('should format with POSIX shortcut macros %F, %T, %R and escaped %%', () => {
@@ -127,11 +128,14 @@ suite('formatter tests', () => {
 
 			const earlyDate = new Date(2026, 0, 5, 0, 15, 0);
 			assert.strictEqual(formatStrftime(earlyDate, '%e %I'), ' 5 12');
+
+			const singleDigitYearDate = new Date(2005, 0, 1, 0, 0, 0);
+			assert.strictEqual(formatStrftime(singleDigitYearDate, '%y %g'), '05 04');
 		});
 
 		test('should return undefined for invalid or undefined dates', () => {
-			assert.strictEqual(formatStrftime(undefined), undefined);
-			assert.strictEqual(formatStrftime(new Date('invalid')), undefined);
+			assert.strictEqual(formatStrftime(undefined, '%Y-%m-%d'), undefined);
+			assert.strictEqual(formatStrftime(new Date('invalid'), '%Y-%m-%d'), undefined);
 		});
 	});
 });

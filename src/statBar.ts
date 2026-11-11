@@ -1,8 +1,7 @@
 import * as vscode from 'vscode';
+import * as constants from './constants.js';
 import { formatMode, formatSize, formatStrftime } from './formatter.js';
 import type { Config, Stats } from './types.js';
-
-const UNAVAILABLE = '-';
 
 export class StatBar implements vscode.Disposable {
 	private item: vscode.StatusBarItem;
@@ -61,12 +60,12 @@ export function renderTemplate(stat: Stats, template: string): string {
 			case 'mode': {
 				switch (modifier) {
 					case undefined:
-					case 'o':
 					case 'b':
+					case 'o':
 					case 'd':
 					case 'x':
 					case 'X':
-						return formatMode(stat.mode, modifier) ?? UNAVAILABLE;
+						return formatMode(stat.mode, modifier) ?? constants.UNAVAILABLE_PLACEHOLDER;
 					default:
 						return match;
 				}
@@ -75,25 +74,37 @@ export function renderTemplate(stat: Stats, template: string): string {
 				switch (modifier) {
 					case undefined:
 					case 'bytes':
-						return formatSize(stat.size, 'bytes') ?? UNAVAILABLE;
+						return formatSize(stat.size, 'bytes') ?? constants.UNAVAILABLE_PLACEHOLDER;
 					case '1000':
 					case 'si':
-						return formatSize(stat.size, 'si') ?? UNAVAILABLE;
+						return formatSize(stat.size, 'si') ?? constants.UNAVAILABLE_PLACEHOLDER;
 					case '1024':
 					case 'iec':
-						return formatSize(stat.size, 'iec') ?? UNAVAILABLE;
+						return formatSize(stat.size, 'iec') ?? constants.UNAVAILABLE_PLACEHOLDER;
 					default:
 						return match;
 				}
 			}
 			case 'atime':
-				return formatStrftime(stat.atime, modifier) ?? UNAVAILABLE;
+				return (
+					formatStrftime(stat.atime, modifier ?? constants.DEFAULT_STRFTIME_PATTERN) ??
+					constants.UNAVAILABLE_PLACEHOLDER
+				);
 			case 'mtime':
-				return formatStrftime(stat.mtime, modifier) ?? UNAVAILABLE;
+				return (
+					formatStrftime(stat.mtime, modifier ?? constants.DEFAULT_STRFTIME_PATTERN) ??
+					constants.UNAVAILABLE_PLACEHOLDER
+				);
 			case 'ctime':
-				return formatStrftime(stat.ctime, modifier) ?? UNAVAILABLE;
+				return (
+					formatStrftime(stat.ctime, modifier ?? constants.DEFAULT_STRFTIME_PATTERN) ??
+					constants.UNAVAILABLE_PLACEHOLDER
+				);
 			case 'btime':
-				return formatStrftime(stat.birthtime, modifier) ?? UNAVAILABLE;
+				return (
+					formatStrftime(stat.birthtime, modifier ?? constants.DEFAULT_STRFTIME_PATTERN) ??
+					constants.UNAVAILABLE_PLACEHOLDER
+				);
 			default:
 				return match;
 		}
@@ -107,7 +118,7 @@ function createItem(config: Config): vscode.StatusBarItem {
 	// On left alignment, negate priority so larger values place the item closer to center.
 	const priority = isLeft ? -config.priority : config.priority;
 
-	const item = vscode.window.createStatusBarItem('file-statbar.item', alignment, priority);
-	item.name = 'File StatBar';
+	const item = vscode.window.createStatusBarItem(constants.STATUS_BAR_ITEM_ID, alignment, priority);
+	item.name = constants.EXTENSION_DISPLAY_NAME;
 	return item;
 }

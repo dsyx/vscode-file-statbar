@@ -26,7 +26,7 @@ suite('statBar tests', () => {
 			'{mode:o} | {size} | {size:bytes} | {size:1000} | {size:si} | {size:1024} | {size:iec} | {atime} | {mtime:%F} | {ctime:%T} | {btime:%F}';
 		assert.strictEqual(
 			renderTemplate(sampleStat, template),
-			'0644 | 1178 B | 1178 B | 1.18 kB | 1.18 kB | 1.15 KiB | 1.15 KiB | - | 2026-10-29 | 14:00:00 | 2026-10-01',
+			'100644 | 1178 B | 1178 B | 1.18 kB | 1.18 kB | 1.15 KiB | 1.15 KiB | - | 2026-10-29 | 14:00:00 | 2026-10-01',
 		);
 	});
 

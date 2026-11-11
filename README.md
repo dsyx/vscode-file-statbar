@@ -30,7 +30,7 @@ A lightweight VS Code extension: File stats at a glance in your status bar.
 | :---------------------- | :------------------------------- | :----------------- |
 | `{mode}`                | POSIX symbolic mode              | `-rw-r--r--`       |
 | `{mode:b}`              | 16-bit binary mode bitmask       | `1000000110100100` |
-| `{mode:o}`              | 4-digit octal permission         | `0644`             |
+| `{mode:o}`              | 6-digit octal mode bitmask       | `100644`           |
 | `{mode:d}`              | Raw decimal mode integer         | `33188`            |
 | `{mode:x}` / `{mode:X}` | 4-digit hex mode (lower / upper) | `81a4` / `81A4`    |
 
