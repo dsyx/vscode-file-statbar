@@ -9,6 +9,7 @@ suite('stat tests', () => {
 	let tempDir: string;
 	let testFilePath: string;
 	let symlinkPath: string;
+	let symlinkSupported = false;
 
 	suiteSetup(async () => {
 		tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'file-statbar-test-'));
@@ -18,8 +19,9 @@ suite('stat tests', () => {
 		symlinkPath = path.join(tempDir, 'sample-link.txt');
 		try {
 			await fs.symlink(testFilePath, symlinkPath);
+			symlinkSupported = true;
 		} catch {
-			// Symlinks might not be supported without admin on Windows, handled gracefully
+			// Symlinks might not be supported without admin on Windows; the symlink test is skipped in that case.
 		}
 	});
 
@@ -121,14 +123,14 @@ suite('stat tests', () => {
 			assert.strictEqual(fileStat.filePath, '/file.txt');
 			assert.strictEqual(fileStat.mode, 0o100600);
 			assert.strictEqual(fileStat.size, 128);
-			assert.strictEqual(fileStat.birthtime?.getTime(), 1_700_000_000_000);
+			assert.strictEqual(fileStat.btime?.getTime(), 1_700_000_000_000);
 			assert.strictEqual(fileStat.mtime?.getTime(), 1_700_000_100_000);
 
 			const roStat = await stat(vscode.Uri.parse(`${scheme}:/readonly.txt`));
 			assert.ok(roStat !== undefined);
 			assert.strictEqual(roStat.mode, 0o100400);
 			assert.strictEqual(roStat.size, 64);
-			assert.strictEqual(roStat.birthtime, undefined);
+			assert.strictEqual(roStat.btime, undefined);
 			assert.strictEqual(roStat.mtime, undefined);
 
 			const dirStat = await stat(vscode.Uri.parse(`${scheme}:/dir`));
@@ -148,17 +150,9 @@ suite('stat tests', () => {
 		}
 	});
 
-	test('should get stats for a symbolic link if supported', async () => {
-		let hasSymlink = false;
-		try {
-			await fs.lstat(symlinkPath);
-			hasSymlink = true;
-		} catch {
-			hasSymlink = false;
-		}
-
-		if (!hasSymlink) {
-			return;
+	test('should get stats for a symbolic link if supported', async function () {
+		if (!symlinkSupported) {
+			this.skip();
 		}
 
 		const res = await stat(vscode.Uri.file(symlinkPath));

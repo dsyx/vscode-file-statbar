@@ -1,4 +1,43 @@
-import * as constants from './constants.js';
+import { constants } from 'node:fs';
+
+// POSIX special mode bits (not provided in node:fs constants)
+const S_ISUID = 0o004000;
+const S_ISGID = 0o002000;
+const S_ISVTX = 0o001000;
+
+const MODE_MASK = 0xffff;
+const MS_PER_DAY = 86_400_000;
+const MS_PER_WEEK = 7 * MS_PER_DAY;
+
+const SIZE_SYSTEMS = {
+	si: {
+		base: 1000,
+		units: ['B', 'kB', 'MB', 'GB', 'TB', 'PB', 'EB'],
+	},
+	iec: {
+		base: 1024,
+		units: ['B', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB', 'EiB'],
+	},
+} as const;
+
+const TYPE_CHARS: Readonly<Record<number, string>> = {
+	[constants.S_IFSOCK]: 's',
+	[constants.S_IFLNK]: 'l',
+	[constants.S_IFREG]: '-',
+	[constants.S_IFBLK]: 'b',
+	[constants.S_IFDIR]: 'd',
+	[constants.S_IFCHR]: 'c',
+	[constants.S_IFIFO]: 'p',
+};
+
+const MODE_FORMATTERS: Record<string, (bits: number) => string> = {
+	b: (bits) => zeroPad(bits.toString(2), 16),
+	o: (bits) => zeroPad(bits.toString(8), 6),
+	d: (bits) => bits.toString(10),
+	x: (bits) => zeroPad(bits.toString(16), 4),
+	// biome-ignore lint/style/useNamingConvention: modifier X specifies uppercase hexadecimal formatting
+	X: (bits) => zeroPad(bits.toString(16).toUpperCase(), 4),
+};
 
 export function formatMode(mode?: number, modifier?: string): string | undefined {
 	if (mode === undefined || !Number.isInteger(mode) || mode < 0) {
@@ -9,35 +48,25 @@ export function formatMode(mode?: number, modifier?: string): string | undefined
 		return formatSymbolicMode(mode);
 	}
 
-	const bits = mode & constants.MODE_MASK;
-	switch (modifier) {
-		case 'b':
-			return zeroPad(bits.toString(2), 16);
-		case 'o':
-			return zeroPad(bits.toString(8), 6);
-		case 'd':
-			return bits.toString(10);
-		case 'x':
-			return zeroPad(bits.toString(16), 4);
-		case 'X':
-			return zeroPad(bits.toString(16).toUpperCase(), 4);
-		default:
-			return undefined;
-	}
+	const formatter = MODE_FORMATTERS[modifier];
+	return formatter ? formatter(mode & MODE_MASK) : undefined;
 }
 
-export function formatSize(bytes?: number, format: 'bytes' | 'si' | 'iec' = 'bytes'): string | undefined {
+export function formatSize(bytes?: number, format?: string): string | undefined {
 	if (bytes === undefined || !Number.isFinite(bytes) || bytes < 0) {
 		return undefined;
 	}
 
-	if (format === 'bytes') {
+	if (format === undefined || format === 'bytes') {
 		return `${bytes} B`;
 	}
 
-	const isIec = format === 'iec';
-	const base = isIec ? constants.IEC_BASE : constants.SI_BASE;
-	const units = isIec ? constants.IEC_UNITS : constants.SI_UNITS;
+	const system = SIZE_SYSTEMS[format as keyof typeof SIZE_SYSTEMS];
+	if (!system) {
+		return undefined;
+	}
+
+	const { base, units } = system;
 
 	let value = bytes;
 	let unitIndex = 0;
@@ -64,37 +93,6 @@ export function formatStrftime(date: Date | undefined, pattern: string): string 
 		return undefined;
 	}
 
-	return strftime(date, pattern);
-}
-
-function formatSymbolicMode(mode: number): string {
-	const typeChar = constants.FILE_TYPE_CHARS[mode & constants.S_IFMT] ?? '-';
-
-	const userR = mode & constants.S_IRUSR ? 'r' : '-';
-	const userW = mode & constants.S_IWUSR ? 'w' : '-';
-	let userX = mode & constants.S_IXUSR ? 'x' : '-';
-	if (mode & constants.S_ISUID) {
-		userX = userX === 'x' ? 's' : 'S';
-	}
-
-	const groupR = mode & constants.S_IRGRP ? 'r' : '-';
-	const groupW = mode & constants.S_IWGRP ? 'w' : '-';
-	let groupX = mode & constants.S_IXGRP ? 'x' : '-';
-	if (mode & constants.S_ISGID) {
-		groupX = groupX === 'x' ? 's' : 'S';
-	}
-
-	const otherR = mode & constants.S_IROTH ? 'r' : '-';
-	const otherW = mode & constants.S_IWOTH ? 'w' : '-';
-	let otherX = mode & constants.S_IXOTH ? 'x' : '-';
-	if (mode & constants.S_ISVTX) {
-		otherX = otherX === 'x' ? 't' : 'T';
-	}
-
-	return `${typeChar}${userR}${userW}${userX}${groupR}${groupW}${groupX}${otherR}${otherW}${otherX}`;
-}
-
-function strftime(date: Date, pattern: string): string {
 	let cachedDayOfYear: number | undefined;
 	const dayOfYear = (): number => {
 		cachedDayOfYear ??= getDayOfYear(date);
@@ -150,17 +148,44 @@ function strftime(date: Date, pattern: string): string {
 			case '%z':
 				return formatTimezoneOffset(date);
 			case '%F':
-				return strftime(date, '%Y-%m-%d');
+				return `${date.getFullYear()}-${zeroPad(date.getMonth() + 1, 2)}-${zeroPad(date.getDate(), 2)}`;
 			case '%T':
-				return strftime(date, '%H:%M:%S');
+				return `${zeroPad(date.getHours(), 2)}:${zeroPad(date.getMinutes(), 2)}:${zeroPad(date.getSeconds(), 2)}`;
 			case '%R':
-				return strftime(date, '%H:%M');
+				return `${zeroPad(date.getHours(), 2)}:${zeroPad(date.getMinutes(), 2)}`;
 			case '%%':
 				return '%';
 			default:
 				return match;
 		}
 	});
+}
+
+function formatSymbolicMode(mode: number): string {
+	const typeChar = TYPE_CHARS[mode & constants.S_IFMT] ?? '-';
+
+	const userR = mode & constants.S_IRUSR ? 'r' : '-';
+	const userW = mode & constants.S_IWUSR ? 'w' : '-';
+	let userX = mode & constants.S_IXUSR ? 'x' : '-';
+	if (mode & S_ISUID) {
+		userX = userX === 'x' ? 's' : 'S';
+	}
+
+	const groupR = mode & constants.S_IRGRP ? 'r' : '-';
+	const groupW = mode & constants.S_IWGRP ? 'w' : '-';
+	let groupX = mode & constants.S_IXGRP ? 'x' : '-';
+	if (mode & S_ISGID) {
+		groupX = groupX === 'x' ? 's' : 'S';
+	}
+
+	const otherR = mode & constants.S_IROTH ? 'r' : '-';
+	const otherW = mode & constants.S_IWOTH ? 'w' : '-';
+	let otherX = mode & constants.S_IXOTH ? 'x' : '-';
+	if (mode & S_ISVTX) {
+		otherX = otherX === 'x' ? 't' : 'T';
+	}
+
+	return `${typeChar}${userR}${userW}${userX}${groupR}${groupW}${groupX}${otherR}${otherW}${otherX}`;
 }
 
 function formatTimezoneOffset(date: Date): string {
@@ -173,7 +198,7 @@ function formatTimezoneOffset(date: Date): string {
 function getDayOfYear(date: Date): number {
 	const utcDate = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
 	const utcStart = Date.UTC(date.getFullYear(), 0, 1);
-	return Math.floor((utcDate - utcStart) / constants.MS_PER_DAY) + 1;
+	return Math.floor((utcDate - utcStart) / MS_PER_DAY) + 1;
 }
 
 function getIsoWeekDetails(date: Date): { year: number; week: number } {
@@ -184,7 +209,7 @@ function getIsoWeekDetails(date: Date): { year: number; week: number } {
 	const janFirst = new Date(Date.UTC(isoYear, 0, 1));
 	const janFirstDay = janFirst.getUTCDay() === 0 ? 7 : janFirst.getUTCDay();
 	const firstThursday = new Date(Date.UTC(isoYear, 0, 1 + (4 - janFirstDay + (janFirstDay > 4 ? 7 : 0))));
-	const isoWeek = 1 + Math.round((target.getTime() - firstThursday.getTime()) / constants.MS_PER_WEEK);
+	const isoWeek = 1 + Math.round((target.getTime() - firstThursday.getTime()) / MS_PER_WEEK);
 	return { year: isoYear, week: isoWeek };
 }
 

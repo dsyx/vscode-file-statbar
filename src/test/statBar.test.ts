@@ -10,7 +10,7 @@ suite('statBar tests', () => {
 		mode: 0o100644,
 		mtime: new Date(2026, 9, 29, 13, 59, 0),
 		ctime: new Date(2026, 9, 29, 14, 0, 0),
-		birthtime: new Date(2026, 9, 1, 8, 30, 0),
+		btime: new Date(2026, 9, 1, 8, 30, 0),
 	};
 
 	test('should substitute default template placeholders correctly', () => {
@@ -23,20 +23,37 @@ suite('statBar tests', () => {
 
 	test('should substitute mode, size, and timestamp modifiers', () => {
 		const template =
-			'{mode:o} | {size} | {size:bytes} | {size:1000} | {size:si} | {size:1024} | {size:iec} | {atime} | {mtime:%F} | {ctime:%T} | {btime:%F}';
+			'{mode:o} | {size} | {size:bytes} | {size:si} | {size:iec} | {atime} | {mtime:%F} | {ctime:%T} | {btime:%F}';
 		assert.strictEqual(
 			renderTemplate(sampleStat, template),
-			'100644 | 1178 B | 1178 B | 1.18 kB | 1.18 kB | 1.15 KiB | 1.15 KiB | - | 2026-10-29 | 14:00:00 | 2026-10-01',
+			'100644 | 1178 B | 1178 B | 1.18 kB | 1.15 KiB | - | 2026-10-29 | 14:00:00 | 2026-10-01',
 		);
 	});
 
-	test('should preserve unknown fields and unknown modifiers as-is', () => {
-		assert.strictEqual(renderTemplate(sampleStat, '{unknown}'), '{unknown}');
-		assert.strictEqual(renderTemplate(sampleStat, '{mode:invalid}'), '{mode:invalid}');
-		assert.strictEqual(renderTemplate(sampleStat, '{size:invalid}'), '{size:invalid}');
+	test('should render unsupported placeholders as the unavailable placeholder', () => {
+		for (const placeholder of [
+			'{unknown}',
+			'{mode:invalid}',
+			'{size:invalid}',
+			'{size:1000}',
+			'{size:1024}',
+			'{size:constructor}',
+			'{mtime:}',
+			'{}',
+			'{ }',
+			'{ mode }',
+			'{123}',
+		]) {
+			assert.strictEqual(renderTemplate(sampleStat, placeholder), '-', placeholder);
+		}
+		assert.strictEqual(renderTemplate(sampleStat, '[{unknown}] {mode:o}'), '[-] 100644');
 		const statWithoutMode: Stats = { ...sampleStat, mode: undefined };
-		assert.strictEqual(renderTemplate(statWithoutMode, '{mode:invalid}'), '{mode:invalid}');
+		assert.strictEqual(renderTemplate(statWithoutMode, '{mode:invalid}'), '-');
 		assert.strictEqual(renderTemplate(statWithoutMode, '{mode}'), '-');
+	});
+
+	test('should preserve unknown strftime specifiers inside timestamp modifiers', () => {
+		assert.strictEqual(renderTemplate(sampleStat, '{mtime:%Q %F}'), '%Q 2026-10-29');
 	});
 
 	test('should manage StatusBarItem lifecycle across update, updateConfig, and dispose', () => {

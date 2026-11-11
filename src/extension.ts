@@ -1,33 +1,40 @@
 import * as vscode from 'vscode';
-import * as constants from './constants.js';
 import { stat } from './stat.js';
 import { StatBar } from './statBar.js';
-import type { Config, Position } from './types.js';
+import {
+	COMMAND_REFRESH,
+	type Config,
+	DEFAULT_CONFIG,
+	EXTENSION_DISPLAY_NAME,
+	EXTENSION_NAME,
+	type Position,
+} from './types.js';
 
 const DEBOUNCE_DELAY_MS = 10;
 
 export function activate(context: vscode.ExtensionContext): void {
-	const logger = vscode.window.createOutputChannel(constants.EXTENSION_DISPLAY_NAME, { log: true });
+	const logger = vscode.window.createOutputChannel(EXTENSION_DISPLAY_NAME, { log: true });
 	const statBar = new StatBar(loadConfig());
 	let latestGeneration = 0;
+	let debounceTimer: ReturnType<typeof setTimeout> | undefined;
 
-	const debounceTimer = setTimeout(async () => {
+	const refresh = (): void => {
 		const generation = ++latestGeneration;
-		const uri = getActiveFileResourceUri();
-		const stats = uri ? await stat(uri, logger) : undefined;
-		if (generation === latestGeneration) {
-			statBar.update(stats);
-		}
-	}, DEBOUNCE_DELAY_MS);
+		clearTimeout(debounceTimer);
+
+		debounceTimer = setTimeout(async () => {
+			const uri = getActiveFileResourceUri();
+			const stats = uri ? await stat(uri, logger) : undefined;
+			if (generation === latestGeneration) {
+				statBar.update(stats);
+			}
+		}, DEBOUNCE_DELAY_MS);
+	};
 
 	const debounceTimerDisposable = new vscode.Disposable(() => {
 		latestGeneration++;
 		clearTimeout(debounceTimer);
 	});
-
-	const refresh = (): void => {
-		debounceTimer.refresh();
-	};
 
 	const refreshIfActiveDocument = ({ uri }: { uri: vscode.Uri }): void => {
 		if (uri.toString() === getActiveFileResourceUri()?.toString()) {
@@ -42,7 +49,7 @@ export function activate(context: vscode.ExtensionContext): void {
 	};
 
 	const updateConfigIfAffected = (e: vscode.ConfigurationChangeEvent): void => {
-		if (e.affectsConfiguration(constants.EXTENSION_NAME)) {
+		if (e.affectsConfiguration(EXTENSION_NAME)) {
 			statBar.updateConfig(loadConfig());
 		}
 	};
@@ -51,14 +58,17 @@ export function activate(context: vscode.ExtensionContext): void {
 		logger,
 		statBar,
 		debounceTimerDisposable,
-		vscode.commands.registerCommand(constants.COMMAND_REFRESH, refresh),
+		vscode.commands.registerCommand(COMMAND_REFRESH, refresh),
 		vscode.workspace.onDidChangeConfiguration(updateConfigIfAffected),
 		vscode.workspace.onDidSaveTextDocument(refreshIfActiveDocument),
 		vscode.workspace.onDidSaveNotebookDocument(refreshIfActiveDocument),
 		vscode.window.tabGroups.onDidChangeTabs(refresh),
 		vscode.window.tabGroups.onDidChangeTabGroups(refresh),
+		vscode.window.onDidChangeActiveTextEditor(refresh),
 		vscode.window.onDidChangeWindowState(refreshIfWindowFocused),
 	);
+
+	refresh();
 }
 
 export function deactivate(): void {}
@@ -67,26 +77,25 @@ function getActiveFileResourceUri(): vscode.Uri | undefined {
 	let uri: vscode.Uri | undefined;
 	const input = vscode.window.tabGroups.activeTabGroup.activeTab?.input;
 
-	switch (true) {
-		case input instanceof vscode.TabInputText:
-		case input instanceof vscode.TabInputCustom:
-		case input instanceof vscode.TabInputNotebook:
-			uri = input.uri;
-			break;
-		case input instanceof vscode.TabInputTextDiff:
-		case input instanceof vscode.TabInputNotebookDiff:
-			uri = vscode.window.activeTextEditor?.document.uri;
-			break;
+	if (
+		input instanceof vscode.TabInputText ||
+		input instanceof vscode.TabInputCustom ||
+		input instanceof vscode.TabInputNotebook
+	) {
+		uri = input.uri;
+	} else if (input instanceof vscode.TabInputTextDiff || input instanceof vscode.TabInputNotebookDiff) {
+		uri = vscode.window.activeTextEditor?.document.uri;
 	}
 
+	// `undefined` means no file system provider is registered for the scheme, so the resource cannot be stat'ed.
 	return uri && vscode.workspace.fs.isWritableFileSystem(uri.scheme) !== undefined ? uri : undefined;
 }
 
 function loadConfig(): Config {
-	const config = vscode.workspace.getConfiguration(constants.EXTENSION_NAME);
+	const config = vscode.workspace.getConfiguration(EXTENSION_NAME);
 	return {
-		template: config.get<string>('template', constants.DEFAULT_TEMPLATE),
-		position: config.get<Position>('position', constants.DEFAULT_POSITION),
-		priority: config.get<number>('priority', constants.DEFAULT_PRIORITY),
+		template: config.get<string>('template', DEFAULT_CONFIG.template),
+		position: config.get<Position>('position', DEFAULT_CONFIG.position),
+		priority: config.get<number>('priority', DEFAULT_CONFIG.priority),
 	};
 }

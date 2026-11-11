@@ -89,9 +89,10 @@ suite('formatter tests', () => {
 			assert.strictEqual(formatSize(1_048_575, 'iec'), '1.00 MiB');
 		});
 
-		test('should return undefined for undefined, negative, or non-finite bytes', () => {
-			assert.strictEqual(formatSize(undefined), undefined);
-			assert.strictEqual(formatSize(-1), undefined);
+		test('should return undefined for undefined, negative, or non-finite bytes, and unknown formats', () => {
+			assert.strictEqual(formatSize(undefined, 'bytes'), undefined);
+			assert.strictEqual(formatSize(-1, 'bytes'), undefined);
+			assert.strictEqual(formatSize(1178, 'invalid'), undefined);
 			assert.strictEqual(formatSize(Number.NaN, 'iec'), undefined);
 		});
 	});

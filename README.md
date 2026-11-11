@@ -13,6 +13,7 @@ A lightweight VS Code extension: File stats at a glance in your status bar.
 
 - **Status Bar Display**: Real-time display of active file mode, size, and modification time (e.g. `[ -rw-r--r-- | 1.15 KiB | 2026-10-29 13:59:26 (M) ]`).
 - **Universal Support**: Works across text files, images, binary files, and custom editor tabs.
+- **Symbolic Links**: Shows the link itself (e.g. mode `lrwxrwxrwx`), not its target.
 
 ## Settings
 
@@ -36,11 +37,11 @@ A lightweight VS Code extension: File stats at a glance in your status bar.
 
 #### File Size
 
-| Placeholder                  | Description                                                                              | Example    |
-| :--------------------------- | :--------------------------------------------------------------------------------------- | :--------- |
-| `{size}` / `{size:bytes}`    | Raw byte count                                                                           | `1178 B`   |
-| `{size:1000}` / `{size:si}`  | SI (International System of Units) metric units (1000-based: kB, MB, GB)                 | `1.18 kB`  |
-| `{size:1024}` / `{size:iec}` | IEC (International Electrotechnical Commission) binary units (1024-based: KiB, MiB, GiB) | `1.15 KiB` |
+| Placeholder               | Description                                                                              | Example    |
+| :------------------------ | :--------------------------------------------------------------------------------------- | :--------- |
+| `{size}` / `{size:bytes}` | Raw byte count                                                                           | `1178 B`   |
+| `{size:si}`               | SI (International System of Units) metric units (1000-based: kB, MB, GB)                 | `1.18 kB`  |
+| `{size:iec}`              | IEC (International Electrotechnical Commission) binary units (1024-based: KiB, MiB, GiB) | `1.15 KiB` |
 
 #### Timestamps
 
@@ -51,7 +52,7 @@ A lightweight VS Code extension: File stats at a glance in your status bar.
 | `{ctime}`   | Time of last status change     | `%Y-%m-%d %H:%M:%S` |
 | `{btime}`   | Time of file birth (creation)  | `%Y-%m-%d %H:%M:%S` |
 
-Unavailable file metadata attributes (such as birth time on unsupported filesystems) fallback gracefully to `-`.
+Unavailable file metadata attributes (such as birth time on unsupported filesystems) fallback gracefully to `-`. Unsupported placeholders (such as `{unknown}` or `{mode:invalid}`) also render as `-`.
 
 All timestamp placeholders support ISO 8601-compatible `strftime` numeric format specifiers via `:<pattern>` (e.g. `{mtime:%F %T}`, `{mtime:%Y/%m/%d}`, `{mtime:%R}`, `{mtime:%s}`):
 

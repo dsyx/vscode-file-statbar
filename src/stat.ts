@@ -1,6 +1,6 @@
+import { constants } from 'node:fs';
 import * as fs from 'node:fs/promises';
 import * as vscode from 'vscode';
-import * as constants from './constants.js';
 import type { Stats } from './types.js';
 
 export async function stat(uri: vscode.Uri, logger?: vscode.LogOutputChannel): Promise<Stats | undefined> {
@@ -18,7 +18,7 @@ async function statLocal(uri: vscode.Uri, logger?: vscode.LogOutputChannel): Pro
 			try {
 				symlinkTarget = await fs.readlink(fsPath);
 			} catch (err) {
-				logger?.warn(`Failed to read symlink target for ${fsPath}: ${String(err)}`);
+				logger?.debug(`readlink: ${fsPath}: ${String(err)}`);
 			}
 		}
 
@@ -36,16 +36,16 @@ async function statLocal(uri: vscode.Uri, logger?: vscode.LogOutputChannel): Pro
 			atime: stats.atime,
 			mtime: stats.mtime,
 			ctime: stats.ctime,
-			birthtime: stats.birthtime.getTime() !== 0 ? stats.birthtime : undefined,
+			btime: stats.birthtime.getTime() !== 0 ? stats.birthtime : undefined,
 			atimeNs: stats.atimeNs,
 			mtimeNs: stats.mtimeNs,
 			ctimeNs: stats.ctimeNs,
-			birthtimeNs: stats.birthtimeNs !== 0n ? stats.birthtimeNs : undefined,
+			btimeNs: stats.birthtimeNs !== 0n ? stats.birthtimeNs : undefined,
 			filePath: resolveFilePath(uri),
 			symlinkTarget,
 		};
 	} catch (err) {
-		logger?.warn(`Failed to stat local file ${fsPath}: ${String(err)}`);
+		logger?.debug(`stat: ${fsPath}: ${String(err)}`);
 		return undefined;
 	}
 }
@@ -56,27 +56,23 @@ async function statVirtual(uri: vscode.Uri, logger?: vscode.LogOutputChannel): P
 		const isReadonly = Boolean((stats.permissions ?? 0) & vscode.FilePermission.Readonly);
 
 		let mode: number | undefined;
-		switch (true) {
-			case (stats.type & vscode.FileType.SymbolicLink) !== 0:
-				mode = constants.S_IFLNK | constants.S_IRWXU;
-				break;
-			case (stats.type & vscode.FileType.Directory) !== 0:
-				mode = constants.S_IFDIR | constants.S_IRUSR | (isReadonly ? 0 : constants.S_IWUSR) | constants.S_IXUSR;
-				break;
-			case (stats.type & vscode.FileType.File) !== 0:
-				mode = constants.S_IFREG | constants.S_IRUSR | (isReadonly ? 0 : constants.S_IWUSR);
-				break;
+		if ((stats.type & vscode.FileType.SymbolicLink) !== 0) {
+			mode = constants.S_IFLNK | constants.S_IRWXU;
+		} else if ((stats.type & vscode.FileType.Directory) !== 0) {
+			mode = constants.S_IFDIR | constants.S_IRUSR | (isReadonly ? 0 : constants.S_IWUSR) | constants.S_IXUSR;
+		} else if ((stats.type & vscode.FileType.File) !== 0) {
+			mode = constants.S_IFREG | constants.S_IRUSR | (isReadonly ? 0 : constants.S_IWUSR);
 		}
 
 		return {
 			mode,
 			size: stats.size,
 			mtime: stats.mtime > 0 ? new Date(stats.mtime) : undefined,
-			birthtime: stats.ctime > 0 ? new Date(stats.ctime) : undefined,
+			btime: stats.ctime > 0 ? new Date(stats.ctime) : undefined,
 			filePath: resolveFilePath(uri),
 		};
 	} catch (err) {
-		logger?.warn(`Failed to stat virtual file ${uri.toString()}: ${String(err)}`);
+		logger?.debug(`stat: ${uri.toString()}: ${String(err)}`);
 		return undefined;
 	}
 }
