@@ -51,7 +51,6 @@ export function formatSize(bytes?: number, format: 'bytes' | 'si' | 'iec' = 'byt
 		return `${bytes} ${units[0]}`;
 	}
 
-	// Advance unit if 2-decimal rounding pushes value to base (e.g. 1048575 B -> 1023.999 KiB -> rounds to 1024.00 KiB -> 1.00 MiB)
 	if (Number(value.toFixed(2)) >= base && unitIndex < units.length - 1) {
 		unitIndex++;
 		value /= base;
