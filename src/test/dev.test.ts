@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { formatDevice } from '../../formatters/device.js';
+import { formatDevice } from '../dev.js';
 
 suite('device formatter tests', () => {
 	test('should format Linux 64-bit device numbers with major/minor', () => {

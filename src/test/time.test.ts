@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { formatNanosecondTimestamp, formatTimestamp } from '../../formatters/timestamp.js';
+import { formatNanosecondTimestamp, formatTimestamp } from '../time.js';
 
 suite('timestamp formatter tests', () => {
 	const fixedDate = new Date(2026, 9, 29, 13, 59, 26, 557);

@@ -29,8 +29,3 @@ export interface Stats {
 	readonly filePath: string;
 	readonly symlinkTarget?: string;
 }
-
-export const EXTENSION = {
-	name: 'file-statbar',
-	displayName: 'File StatBar',
-} as const;

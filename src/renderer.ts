@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
-import { formatDevice } from './formatters/device.js';
-import { formatFileType, formatMode, formatPermissions } from './formatters/mode.js';
-import { formatSize } from './formatters/size.js';
-import { formatNanosecondTimestamp, formatTimestamp } from './formatters/timestamp.js';
+import { formatDevice } from './dev.js';
+import { formatFileType, formatMode, formatPermissions } from './mode.js';
+import { formatSize } from './size.js';
+import { formatNanosecondTimestamp, formatTimestamp } from './time.js';
 import type { Stats } from './types.js';
 
 type GridCell = readonly [label: string, value: string | undefined];

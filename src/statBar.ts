@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
+import { EXTENSION } from './constants.js';
 import { renderTemplate, renderTooltip } from './renderer.js';
-import { type Config, EXTENSION, type Position, type Stats } from './types.js';
+import type { Config, Position, Stats } from './types.js';
 
 const STATUS_BAR_ID = `${EXTENSION.name}.item`;
 

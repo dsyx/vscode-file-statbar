@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { formatFileType, formatMode, formatPermissions } from '../../formatters/mode.js';
+import { formatFileType, formatMode, formatPermissions } from '../mode.js';
 
 suite('mode formatter tests', () => {
 	test('should format regular file symbolic permissions', () => {

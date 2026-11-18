@@ -1,7 +1,8 @@
 import * as vscode from 'vscode';
+import { EXTENSION } from './constants.js';
 import { stat } from './stat.js';
 import { StatBar } from './statBar.js';
-import { type Config, EXTENSION } from './types.js';
+import type { Config } from './types.js';
 
 const COMMAND_REFRESH = `${EXTENSION.name}.refresh`;
 const DEFAULT_CONFIG: Config = {

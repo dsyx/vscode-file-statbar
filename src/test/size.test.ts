@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { formatSize } from '../../formatters/size.js';
+import { formatSize } from '../size.js';
 
 suite('size formatter tests', () => {
 	test('should format raw bytes by default and explicitly', () => {
