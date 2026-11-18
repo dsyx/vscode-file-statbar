@@ -1,6 +1,6 @@
-import { constants } from 'node:fs';
 import * as fs from 'node:fs/promises';
 import * as vscode from 'vscode';
+import * as constants from './constants.js';
 import type { Stats } from './types.js';
 
 export async function stat(uri: vscode.Uri, logger?: vscode.LogOutputChannel): Promise<Stats | undefined> {
@@ -53,7 +53,10 @@ async function statLocal(uri: vscode.Uri, logger?: vscode.LogOutputChannel): Pro
 async function statVirtual(uri: vscode.Uri, logger?: vscode.LogOutputChannel): Promise<Stats | undefined> {
 	try {
 		const stats = await vscode.workspace.fs.stat(uri);
-		const isReadonly = Boolean((stats.permissions ?? 0) & vscode.FilePermission.Readonly);
+		// `workspace.fs.stat()` does not inject `FilePermission.Readonly` when a readonly provider omits `permissions`.
+		const isReadonly =
+			Boolean((stats.permissions ?? 0) & vscode.FilePermission.Readonly) ||
+			vscode.workspace.fs.isWritableFileSystem(uri.scheme) === false;
 
 		let mode: number | undefined;
 		if ((stats.type & vscode.FileType.SymbolicLink) !== 0) {

@@ -106,27 +106,8 @@ suite('stat tests', () => {
 			],
 		]);
 
-		const emitter = new vscode.EventEmitter<vscode.FileChangeEvent[]>();
 		const logger = vscode.window.createOutputChannel('StatBar Test', { log: true });
-		const provider: vscode.FileSystemProvider = {
-			onDidChangeFile: emitter.event,
-			watch: () => new vscode.Disposable(() => {}),
-			stat: (uri) => {
-				const entry = entries.get(uri.path);
-				if (!entry) {
-					throw vscode.FileSystemError.FileNotFound(uri);
-				}
-				return entry;
-			},
-			readDirectory: () => [],
-			createDirectory: () => {},
-			readFile: () => new Uint8Array(),
-			writeFile: () => {},
-			delete: () => {},
-			rename: () => {},
-		};
-
-		const registration = vscode.workspace.registerFileSystemProvider(scheme, provider);
+		const registration = registerVirtualFs(scheme, entries);
 		try {
 			const fileStat = await stat(vscode.Uri.parse(`${scheme}:/file.txt`));
 			assert.ok(fileStat !== undefined);
@@ -163,8 +144,26 @@ suite('stat tests', () => {
 			assert.strictEqual(missingStat, undefined);
 		} finally {
 			registration.dispose();
-			emitter.dispose();
 			logger.dispose();
+		}
+	});
+
+	test('should synthesize readonly mode for readonly virtual filesystem providers', async () => {
+		const scheme = 'statbar-ro-vfs';
+		const entries = new Map<string, vscode.FileStat>([
+			['/file.txt', { type: vscode.FileType.File, ctime: 0, mtime: 0, size: 10 }],
+			['/dir', { type: vscode.FileType.Directory, ctime: 0, mtime: 0, size: 0 }],
+		]);
+
+		const registration = registerVirtualFs(scheme, entries, { isReadonly: true });
+		try {
+			const fileStat = await stat(vscode.Uri.parse(`${scheme}:/file.txt`));
+			assert.strictEqual(fileStat?.mode, 0o100400);
+
+			const dirStat = await stat(vscode.Uri.parse(`${scheme}:/dir`));
+			assert.strictEqual(dirStat?.mode, 0o040500);
+		} finally {
+			registration.dispose();
 		}
 	});
 
@@ -191,3 +190,31 @@ suite('stat tests', () => {
 		}
 	});
 });
+
+function registerVirtualFs(
+	scheme: string,
+	entries: ReadonlyMap<string, vscode.FileStat>,
+	options?: { readonly isReadonly?: boolean },
+): vscode.Disposable {
+	const emitter = new vscode.EventEmitter<vscode.FileChangeEvent[]>();
+	const provider: vscode.FileSystemProvider = {
+		onDidChangeFile: emitter.event,
+		watch: () => new vscode.Disposable(() => {}),
+		stat: (uri) => {
+			const entry = entries.get(uri.path);
+			if (!entry) {
+				throw vscode.FileSystemError.FileNotFound(uri);
+			}
+			return entry;
+		},
+		readDirectory: () => [],
+		createDirectory: () => {},
+		readFile: () => new Uint8Array(),
+		writeFile: () => {},
+		delete: () => {},
+		rename: () => {},
+	};
+
+	const registration = vscode.workspace.registerFileSystemProvider(scheme, provider, options);
+	return vscode.Disposable.from(registration, emitter);
+}
