@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { formatTimestamp } from '../../formatters/timestamp.js';
+import { formatNanosecondTimestamp, formatTimestamp } from '../../formatters/timestamp.js';
 
 suite('timestamp formatter tests', () => {
 	const fixedDate = new Date(2026, 9, 29, 13, 59, 26, 557);
@@ -54,5 +54,26 @@ suite('timestamp formatter tests', () => {
 		for (const format of ['', 'invalid', 'full-iso', 'iso-long', '%F', 'toString', 'constructor']) {
 			assert.strictEqual(formatTimestamp(fixedDate, format), undefined, format);
 		}
+	});
+
+	test('should format nanosecond timestamps and fallback millisecond dates cleanly', () => {
+		const baseSec = BigInt(Math.floor(fixedDate.getTime() / 1000));
+		const ns = baseSec * 1_000_000_000n + 44n;
+		const formattedNs = formatNanosecondTimestamp(ns, fixedDate);
+		assert.ok(formattedNs !== undefined);
+		assert.match(formattedNs, /^2026-10-29 13:59:26\.000000044 [+-]\d{4}$/);
+
+		const formattedFallback = formatNanosecondTimestamp(undefined, fixedDate);
+		assert.ok(formattedFallback !== undefined);
+		assert.match(formattedFallback, /^2026-10-29 13:59:26\.557000000 [+-]\d{4}$/);
+
+		// Negative sub-second timestamp adjustment (-0.000000001s -> 1969-12-31 23:59:59.999999999 UTC).
+		const preEpoch = formatNanosecondTimestamp(-1n);
+		assert.ok(preEpoch !== undefined);
+		assert.match(preEpoch, /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:59\.999999999 [+-]\d{4}$/);
+
+		assert.strictEqual(formatNanosecondTimestamp(undefined, undefined), undefined);
+		assert.strictEqual(formatNanosecondTimestamp(undefined, new Date('invalid')), undefined);
+		assert.strictEqual(formatNanosecondTimestamp(10n ** 30n), undefined);
 	});
 });

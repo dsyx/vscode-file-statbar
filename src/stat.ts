@@ -79,7 +79,7 @@ async function statVirtual(uri: vscode.Uri, logger?: vscode.LogOutputChannel): P
 
 function resolveFilePath(uri: vscode.Uri): string {
 	if (vscode.workspace.getWorkspaceFolder(uri)) {
-		return vscode.workspace.asRelativePath(uri, false);
+		return vscode.workspace.asRelativePath(uri);
 	}
 	return uri.scheme === 'file' ? uri.fsPath : uri.path;
 }

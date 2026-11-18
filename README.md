@@ -11,9 +11,15 @@ A lightweight VS Code extension: File stats at a glance in your status bar.
 
 ## Features
 
-- **Status Bar Display**: Real-time display of active file mode, size, and modification time (e.g. `[ -rw-r--r-- | 1.15 KiB | 2026-10-29 13:59:26 (M) ]`).
-- **Universal Support**: Works across text files, images, binary files, and custom editor tabs.
-- **Symbolic Links**: Shows the link itself (e.g. mode `lrwxrwxrwx`), not its target.
+- **Universal Support**: Works across text files, images, binary files, etc.
+- **Customizable Status Bar**: Real-time display of active file metadata.
+- **Hover Tooltip**: Detailed monospace tooltip showing full file metadata.
+
+> **Note:**
+>
+> - On non-POSIX platforms or filesystems, `mode` is synthesized.
+> - Unavailable fields fall back to `-`.
+> - In the hover tooltip, compound fields are formatted as `value (human-friendly representation)`.
 
 ## Settings
 
@@ -23,13 +29,11 @@ A lightweight VS Code extension: File stats at a glance in your status bar.
 | `file-statbar.position` | `"left"`/`"right"` | `"right"`                                   | Position on the status bar.                                      |
 | `file-statbar.priority` | `number`           | `1024`                                      | Status bar priority (higher values place item closer to center). |
 
-### Template Placeholders & Modifiers
+### `file-statbar.template`
 
 Placeholders use `{<field>}` or `{<field>:<modifier>}` to display file attributes and select an optional output modifier.
 
 #### File Mode
-
-Displays POSIX file mode bits. On virtual filesystems or platforms without native POSIX permissions, mode bits are synthesized from file type and read-only status.
 
 | Placeholder             | Description                      | Example            |
 | :---------------------- | :------------------------------- | :----------------- |
@@ -49,14 +53,14 @@ Displays POSIX file mode bits. On virtual filesystems or platforms without nativ
 
 #### Timestamps
 
-| Placeholder | Description                    | Default Modifier |
-| :---------- | :----------------------------- | :--------------- |
-| `{atime}`   | Time of last access            | `iso-datetime`   |
-| `{mtime}`   | Time of last data modification | `iso-datetime`   |
-| `{ctime}`   | Time of last status change     | `iso-datetime`   |
-| `{btime}`   | Time of file birth (creation)  | `iso-datetime`   |
+| Placeholder | Description                    |
+| :---------- | :----------------------------- |
+| `{atime}`   | Time of last access            |
+| `{mtime}`   | Time of last data modification |
+| `{ctime}`   | Time of last status change     |
+| `{btime}`   | Time of file birth (creation)  |
 
-All timestamp placeholders default to `iso-datetime` and support the following modifiers via `:<modifier>` (e.g. `{mtime:iso-8601}`, `{mtime:iso-date}`):
+Supported modifiers via `:<modifier>` (default: `iso-datetime`):
 
 | Modifier       | Description                                         | Example                     |
 | :------------- | :-------------------------------------------------- | :-------------------------- |
@@ -65,8 +69,6 @@ All timestamp placeholders default to `iso-datetime` and support the following m
 | `iso-datetime` | Local date and time (`YYYY-MM-DD HH:MM:SS`)         | `2026-11-05 14:30:45`       |
 | `iso-date`     | Local calendar date (`YYYY-MM-DD`)                  | `2026-11-05`                |
 | `iso-time`     | Local wall-clock time (`HH:MM:SS`)                  | `14:30:45`                  |
-
-Unavailable file metadata attributes (such as birth time on unsupported filesystems) fallback gracefully to `-`. Unsupported placeholders (such as `{unknown}`, `{mode:invalid}`, or `{mtime:invalid}`) also render as `-`.
 
 ## Commands
 

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { formatMode } from '../../formatters/mode.js';
+import { formatFileType, formatMode, formatPermissions } from '../../formatters/mode.js';
 
 suite('mode formatter tests', () => {
 	test('should format regular file symbolic permissions', () => {
@@ -60,6 +60,28 @@ suite('mode formatter tests', () => {
 			assert.strictEqual(formatMode(invalid, 'd'), undefined);
 			assert.strictEqual(formatMode(invalid, 'x'), undefined);
 			assert.strictEqual(formatMode(invalid, 'X'), undefined);
+			assert.strictEqual(formatFileType(invalid), undefined);
+			assert.strictEqual(formatPermissions(invalid), undefined);
 		}
+	});
+
+	test('should format file types and fallback to ? for unknown S_IFMT', () => {
+		assert.strictEqual(formatFileType(0o100644), 'regular file');
+		assert.strictEqual(formatFileType(0o040755), 'directory');
+		assert.strictEqual(formatFileType(0o120777), 'symbolic link');
+		assert.strictEqual(formatFileType(0o140755), 'socket');
+		assert.strictEqual(formatFileType(0o010644), 'fifo');
+		assert.strictEqual(formatFileType(0o060660), 'block device');
+		assert.strictEqual(formatFileType(0o020666), 'char device');
+		assert.strictEqual(formatFileType(0o000755), '?');
+	});
+
+	test('should format 4-digit octal and 9-char symbolic permissions including special bits', () => {
+		assert.strictEqual(formatPermissions(0o040755), '0755 (rwxr-xr-x)');
+		assert.strictEqual(formatPermissions(0o100644), '0644 (rw-r--r--)');
+		assert.strictEqual(formatPermissions(0o104755), '4755 (rwsr-xr-x)');
+		assert.strictEqual(formatPermissions(0o102745), '2745 (rwxr-Sr-x)');
+		assert.strictEqual(formatPermissions(0o041777), '1777 (rwxrwxrwt)');
+		assert.strictEqual(formatPermissions(0o047000), '7000 (--S--S--T)');
 	});
 });

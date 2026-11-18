@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import * as vscode from 'vscode';
 import { StatBar } from '../statBar.js';
 import type { Config, Stats } from '../types.js';
 
@@ -91,11 +92,14 @@ suite('statBar tests', () => {
 			position: 'right',
 			priority: 1024,
 		});
+		const currentTooltip = (): string | vscode.MarkdownString | undefined => statBar.tooltip;
 		try {
 			assert.strictEqual(statBar.text, '');
+			assert.strictEqual(currentTooltip(), undefined);
 
 			statBar.update(undefined);
 			assert.strictEqual(statBar.text, '');
+			assert.strictEqual(currentTooltip(), undefined);
 
 			statBar.updateConfig({
 				template: '[ {mode} | {size:bytes} ]',
@@ -103,9 +107,13 @@ suite('statBar tests', () => {
 				priority: 0,
 			});
 			assert.strictEqual(statBar.text, '');
+			assert.strictEqual(currentTooltip(), undefined);
 
 			statBar.update(sampleStats);
 			assert.strictEqual(statBar.text, '[ -rw-r--r-- | 1178 B ]');
+			const initialTooltip = currentTooltip();
+			assert.ok(initialTooltip instanceof vscode.MarkdownString);
+			assert.ok(initialTooltip.value.includes(' file: sample.txt\n'));
 
 			statBar.updateConfig({
 				template: '{size:iec}',
@@ -113,6 +121,7 @@ suite('statBar tests', () => {
 				priority: 0,
 			});
 			assert.strictEqual(statBar.text, '1.15 KiB');
+			assert.ok(currentTooltip() instanceof vscode.MarkdownString);
 
 			statBar.updateConfig({
 				template: '{size:iec}',
@@ -120,9 +129,11 @@ suite('statBar tests', () => {
 				priority: 500,
 			});
 			assert.strictEqual(statBar.text, '1.15 KiB');
+			assert.ok(currentTooltip() instanceof vscode.MarkdownString);
 
 			statBar.update(undefined);
 			assert.strictEqual(statBar.text, '');
+			assert.strictEqual(currentTooltip(), undefined);
 		} finally {
 			statBar.dispose();
 		}
