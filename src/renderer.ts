@@ -6,92 +6,132 @@ import { formatTimestamp } from './time.js';
 import type { Stats } from './types.js';
 
 type GridCell = readonly [label: string, value: string | undefined];
+type GridRow = readonly GridCell[];
+
+const UNAVAILABLE_PLACEHOLDER = '-';
+const TEMPLATE_TOKEN_PATTERN = /\{\{|\}\}|\{([^{}]*)\}/g;
+const FIELD_PATTERN = /^([a-zA-Z]+)(?::(.+))?$/;
+
+const COLUMN_GAP = 2;
+const FIRST_LABEL_WIDTH = 5;
+const MAX_LINE_WIDTH = 80;
 
 const ASCII_MAX_CODE_POINT = 0x7f;
-const COLUMN_GAP = 2;
-const MAX_LINE_WIDTH = 80;
-const SYMLINK_SEPARATOR = ' -> ';
-const UNAVAILABLE_PLACEHOLDER = '-';
-
-const PLACEHOLDER_PATTERN = /\{([^}]*)\}/g;
-const FIELD_PATTERN = /^([a-zA-Z]+)(?::(.+))?$/;
+const EXTENDED_PICTOGRAPHIC_PATTERN = /\p{Extended_Pictographic}/u;
 const GRAPHEME_SEGMENTER = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+const WIDE_CODE_POINT_RANGES: readonly (readonly [start: number, end: number])[] = [
+	[0x1100, 0x115f], // Hangul Jamo
+	[0x2329, 0x232a], // Angle Brackets
+	[0x2e80, 0x303e], // CJK Radicals .. CJK Symbols (excl. U+303F)
+	[0x3040, 0x3247], // Hiragana .. Enclosed CJK Letters
+	[0x3250, 0x4dbf], // Enclosed CJK Letters .. CJK Extension A
+	[0x4e00, 0xa4c6], // CJK Unified Ideographs .. Yi Radicals
+	[0xa960, 0xa97c], // Hangul Jamo Extended-A
+	[0xac00, 0xd7a3], // Hangul Syllables
+	[0xf900, 0xfaff], // CJK Compatibility Ideographs
+	[0xfe10, 0xfe19], // Vertical Forms
+	[0xfe30, 0xfe6b], // CJK Compatibility Forms .. Small Form Variants
+	[0xff01, 0xff60], // Fullwidth ASCII & Punctuation
+	[0xffe0, 0xffe6], // Fullwidth Symbol Variants
+	[0x1b000, 0x1b001], // Kana Supplement
+	[0x1f200, 0x1f251], // Enclosed Ideographic Supplement
+	[0x20000, 0x3fffd], // CJK Unified Ideographs Extensions B-I
+];
 
 export function renderTemplate(stats: Stats, template: string): string {
-	return template.replace(PLACEHOLDER_PATTERN, (_match, body: string) => {
-		const parsed = FIELD_PATTERN.exec(body);
-		const rendered = parsed ? renderTemplateField(stats, parsed[1], parsed[2]) : undefined;
-		return rendered ?? UNAVAILABLE_PLACEHOLDER;
+	return template.replace(TEMPLATE_TOKEN_PATTERN, (match, placeholder: string | undefined) => {
+		if (placeholder === undefined) {
+			return match[0];
+		}
+
+		const [, field, modifier] = FIELD_PATTERN.exec(placeholder) ?? [];
+		return (field ? formatTemplateField(stats, field, modifier) : undefined) ?? UNAVAILABLE_PLACEHOLDER;
 	});
 }
 
 export function renderTooltip(stats: Stats, platform: NodeJS.Platform = process.platform): vscode.MarkdownString {
-	return new vscode.MarkdownString(formatCodeBlock(renderTooltipText(stats, platform)));
+	const fileLines = formatFileLines(stats.filePath, stats.symlinkTarget, FIRST_LABEL_WIDTH, MAX_LINE_WIDTH);
+	const propertyLines = formatGrid(buildPropertyRows(stats, platform), COLUMN_GAP, FIRST_LABEL_WIDTH);
+	return new vscode.MarkdownString().appendCodeblock(`${fileLines}\n${propertyLines}`, 'text');
 }
 
-export function renderTooltipText(stats: Stats, platform: NodeJS.Platform = process.platform): string {
-	const detailRows: readonly (readonly GridCell[])[] = [
+function formatTemplateField(stats: Stats, field: string, modifier?: string): string | undefined {
+	switch (field) {
+		case 'mode':
+			return ifDefined(stats.mode, (mode) => formatMode(mode, modifier ?? 's'));
+		case 'size':
+			return ifDefined(stats.size, (size) => formatSize(size, modifier ?? 'bytes'));
+		case 'atime':
+		case 'mtime':
+		case 'ctime':
+		case 'btime':
+			return ifDefined(stats[`${field}Ns`], (ns) => formatTimestamp(ns, modifier ?? 'datetime'));
+		default:
+			return undefined;
+	}
+}
+
+function formatFileLines(
+	filePath: string,
+	symlinkTarget: string | undefined,
+	labelWidth: number,
+	maxLineWidth: number,
+): string {
+	const prefix = `${'file'.padStart(labelWidth, ' ')}: `;
+	const availableWidth = maxLineWidth - prefix.length;
+
+	let value: string;
+	if (symlinkTarget === undefined) {
+		value = truncatePathByWidth(filePath, availableWidth);
+	} else {
+		const link = `${filePath} -> ${symlinkTarget}`;
+		if (getDisplayWidth(link) <= availableWidth) {
+			value = link;
+		} else {
+			const indent = ' '.repeat(prefix.length);
+			const path = truncatePathByWidth(filePath, availableWidth);
+			const target = truncatePathByWidth(symlinkTarget, availableWidth - '-> '.length);
+			value = `${path}\n${indent}-> ${target}`;
+		}
+	}
+
+	return `${prefix}${value}`;
+}
+
+function buildPropertyRows(stats: Stats, platform: NodeJS.Platform): readonly GridRow[] {
+	return [
 		[
-			['dev', stats.dev !== undefined ? formatDevice(stats.dev, platform) : undefined],
+			['dev', ifDefined(stats.dev, (dev) => formatDevice(dev, platform))],
 			['ino', stats.ino?.toString()],
 			['nlink', stats.nlink?.toString()],
 		],
 		[
-			['mode', formatModeCell(stats.mode)],
-			['type', stats.mode !== undefined ? formatFileType(stats.mode) : undefined],
-			[
-				'perm',
-				stats.mode !== undefined
-					? `${formatPermissions(stats.mode, 'o')} (${formatPermissions(stats.mode, 's')})`
-					: undefined,
-			],
+			['mode', ifDefined(stats.mode, (mode) => `${formatMode(mode, 'o')} (${formatMode(mode, 's')})`)],
+			['type', ifDefined(stats.mode, formatFileType)],
+			['perm', ifDefined(stats.mode, (mode) => `${formatPermissions(mode, 'o')} (${formatPermissions(mode, 's')})`)],
 		],
 		[
 			['uid', stats.uid?.toString()],
 			['gid', stats.gid?.toString()],
 		],
 		[
-			['size', formatSizeCell(stats.size)],
+			['size', ifDefined(stats.size, (size) => `${size} (${formatSize(size, 'iec')})`)],
 			['blocks', stats.blocks?.toString()],
 			['blksize', stats.blksize?.toString()],
 		],
-		[['atime', stats.atimeNs !== undefined ? formatTimestamp(stats.atimeNs, 'gnu-full-iso') : undefined]],
-		[['mtime', stats.mtimeNs !== undefined ? formatTimestamp(stats.mtimeNs, 'gnu-full-iso') : undefined]],
-		[['ctime', stats.ctimeNs !== undefined ? formatTimestamp(stats.ctimeNs, 'gnu-full-iso') : undefined]],
-		[['btime', stats.btimeNs !== undefined ? formatTimestamp(stats.btimeNs, 'gnu-full-iso') : undefined]],
+		[['atime', ifDefined(stats.atimeNs, (ns) => formatTimestamp(ns, 'gnu-full-iso'))]],
+		[['mtime', ifDefined(stats.mtimeNs, (ns) => formatTimestamp(ns, 'gnu-full-iso'))]],
+		[['ctime', ifDefined(stats.ctimeNs, (ns) => formatTimestamp(ns, 'gnu-full-iso'))]],
+		[['btime', ifDefined(stats.btimeNs, (ns) => formatTimestamp(ns, 'gnu-full-iso'))]],
 	];
-
-	const fileLabel = 'file';
-	const col0LabelWidth = detailRows.reduce((max, row) => Math.max(max, row[0][0].length), fileLabel.length);
-	const maxFileValueWidth = Math.max(0, MAX_LINE_WIDTH - (col0LabelWidth + ': '.length));
-	const fileRow: readonly GridCell[] = [
-		[fileLabel, formatFileValue(stats.filePath, stats.symlinkTarget, maxFileValueWidth)],
-	];
-
-	return formatGrid([fileRow, ...detailRows], COLUMN_GAP);
 }
 
-function renderTemplateField(stats: Stats, field: string, modifier?: string): string | undefined {
-	switch (field) {
-		case 'mode':
-			return stats.mode !== undefined ? formatMode(stats.mode, modifier ?? 's') : undefined;
-		case 'size':
-			return stats.size !== undefined ? formatSize(stats.size, modifier ?? 'bytes') : undefined;
-		case 'atime':
-		case 'mtime':
-		case 'ctime':
-		case 'btime': {
-			const timestamp = stats[`${field}Ns`];
-			return timestamp !== undefined ? formatTimestamp(timestamp, modifier ?? 'datetime') : undefined;
-		}
-		default:
-			return undefined;
+function formatGrid(rows: readonly GridRow[], columnGap: number, minFirstLabelWidth = 0): string {
+	const columnCount = rows.reduce((max, row) => Math.max(max, row.length), 0);
+	const labelWidths = new Array<number>(columnCount).fill(0);
+	if (columnCount > 0) {
+		labelWidths[0] = minFirstLabelWidth;
 	}
-}
-
-function formatGrid(rows: readonly (readonly GridCell[])[], gapMin: number): string {
-	const maxCols = rows.reduce((max, row) => Math.max(max, row.length), 0);
-	const labelWidths = new Array<number>(maxCols).fill(0);
 
 	for (const row of rows) {
 		for (let col = 0; col < row.length; col++) {
@@ -99,143 +139,159 @@ function formatGrid(rows: readonly (readonly GridCell[])[], gapMin: number): str
 		}
 	}
 
-	const renderedRows = rows.map((row) =>
+	const formattedRows = rows.map((row) =>
 		row.map(([label, value], col) => `${label.padStart(labelWidths[col], ' ')}: ${value ?? UNAVAILABLE_PLACEHOLDER}`),
 	);
 
-	const colWidths = new Array<number>(maxCols).fill(0);
-	for (const row of renderedRows) {
+	const columnWidths = new Array<number>(columnCount).fill(0);
+	for (const row of formattedRows) {
 		for (let col = 0; col < row.length - 1; col++) {
-			colWidths[col] = Math.max(colWidths[col], row[col].length);
+			columnWidths[col] = Math.max(columnWidths[col], row[col].length);
 		}
 	}
 
-	return renderedRows
+	return formattedRows
 		.map((row) =>
-			row.map((cell, col) => (col < row.length - 1 ? cell.padEnd(colWidths[col] + gapMin, ' ') : cell)).join(''),
+			row.map((cell, col) => (col < row.length - 1 ? cell.padEnd(columnWidths[col] + columnGap, ' ') : cell)).join(''),
 		)
 		.join('\n');
 }
 
-function formatCodeBlock(text: string): string {
-	let maxBackticks = 0;
-	for (const match of text.matchAll(/`+/g)) {
-		if (match[0].length > maxBackticks) {
-			maxBackticks = match[0].length;
+function truncatePathByWidth(path: string, maxWidth: number): string {
+	if (getDisplayWidth(path) <= maxWidth) {
+		return path;
+	}
+
+	const separator = path.includes('/') ? '/' : path.includes('\\') ? '\\' : undefined;
+	if (!separator) {
+		return truncateMiddleByWidth(path, maxWidth);
+	}
+
+	const segments = splitPathSegments(path, separator);
+	if (segments.length <= 1) {
+		return truncateMiddleByWidth(path, maxWidth);
+	}
+
+	const separatorWidth = 1;
+	const segmentWidths = segments.map(getDisplayWidth);
+
+	let usedWidth = '...'.length + separatorWidth + segmentWidths[segments.length - 1];
+	if (usedWidth > maxWidth) {
+		return truncateMiddleByWidth(path, maxWidth);
+	}
+
+	let headCount = 0;
+	let tailCount = 1;
+	let headBlocked = false;
+	let tailBlocked = false;
+	let preferHead = true;
+
+	while (headCount + tailCount < segments.length - 1 && (!headBlocked || !tailBlocked)) {
+		const takeHead = preferHead ? !headBlocked : tailBlocked;
+		const index = takeHead ? headCount : segments.length - 1 - tailCount;
+		const addedWidth = separatorWidth + segmentWidths[index];
+
+		if (usedWidth + addedWidth <= maxWidth) {
+			usedWidth += addedWidth;
+			if (takeHead) {
+				headCount++;
+			} else {
+				tailCount++;
+			}
+		} else if (takeHead) {
+			headBlocked = true;
+		} else {
+			tailBlocked = true;
 		}
+
+		preferHead = !preferHead;
 	}
 
-	const fence = '`'.repeat(Math.max(3, maxBackticks + 1));
-	return `${fence}text\n${text}\n${fence}`;
+	return [...segments.slice(0, headCount), '...', ...segments.slice(segments.length - tailCount)].join(separator);
 }
 
-function formatFileValue(filePath: string, symlinkTarget: string | undefined, maxWidth: number): string {
-	const sanitizedPath = sanitizeSingleLine(filePath);
-	if (symlinkTarget === undefined) {
-		return truncateMiddleByWidth(sanitizedPath, maxWidth);
+function splitPathSegments(path: string, separator: string): string[] {
+	const parts = path.split(separator);
+	const start = parts.findIndex((part) => part.length > 0);
+	if (start === -1) {
+		return [path];
 	}
 
-	const sanitizedTarget = sanitizeSingleLine(symlinkTarget);
-	const sepWidth = getDisplayWidth(SYMLINK_SEPARATOR);
-	const leftWidth = getDisplayWidth(sanitizedPath);
-	const rightWidth = getDisplayWidth(sanitizedTarget);
-	if (leftWidth + sepWidth + rightWidth <= maxWidth) {
-		return `${sanitizedPath}${SYMLINK_SEPARATOR}${sanitizedTarget}`;
+	let end = parts.length - 1;
+	while (end > start && parts[end].length === 0) {
+		end--;
 	}
 
-	const contentBudget = Math.max(0, maxWidth - sepWidth);
-	const halfBudget = Math.floor(contentBudget / 2);
-	let leftBudget: number;
-	let rightBudget: number;
-
-	if (leftWidth <= halfBudget) {
-		leftBudget = leftWidth;
-		rightBudget = contentBudget - leftWidth;
-	} else if (rightWidth <= halfBudget) {
-		rightBudget = rightWidth;
-		leftBudget = contentBudget - rightWidth;
-	} else {
-		leftBudget = Math.ceil(contentBudget / 2);
-		rightBudget = contentBudget - leftBudget;
+	const segments = parts.slice(start, end + 1);
+	if (start > 0) {
+		segments[0] = `${separator.repeat(start)}${segments[0]}`;
+	}
+	const trailing = parts.length - 1 - end;
+	if (trailing > 0) {
+		segments[segments.length - 1] = `${segments[segments.length - 1]}${separator.repeat(trailing)}`;
 	}
 
-	const left = truncateMiddleByWidth(sanitizedPath, leftBudget);
-	const right = truncateMiddleByWidth(sanitizedTarget, rightBudget);
-	return `${left}${SYMLINK_SEPARATOR}${right}`;
-}
-
-function sanitizeSingleLine(value: string): string {
-	return value.replace(/\r/g, '\\r').replace(/\n/g, '\\n').replace(/\t/g, '\\t');
+	return segments;
 }
 
 function truncateMiddleByWidth(value: string, maxWidth: number): string {
-	if (getDisplayWidth(value) <= maxWidth) {
-		return value;
-	}
-
-	const ellipsis = '...';
-	if (maxWidth <= ellipsis.length) {
-		return ellipsis.slice(0, Math.max(0, maxWidth));
-	}
-
-	const segments = Array.from(GRAPHEME_SEGMENTER.segment(value), (part) => part.segment);
-	const available = maxWidth - ellipsis.length;
-	const headBudget = Math.ceil(available / 2);
+	const graphemes = Array.from(GRAPHEME_SEGMENTER.segment(value), ({ segment }) => segment);
+	const availableWidth = maxWidth - '...'.length;
 
 	let headEnd = 0;
-	let headWidth = 0;
-	while (headEnd < segments.length) {
-		const w = getSegmentWidth(segments[headEnd]);
-		if (headWidth + w > headBudget) {
+	let tailStart = graphemes.length;
+	let usedWidth = 0;
+	let pickTail = true;
+
+	while (headEnd < tailStart) {
+		const width = getGraphemeWidth(graphemes[pickTail ? tailStart - 1 : headEnd]);
+		if (usedWidth + width > availableWidth) {
 			break;
 		}
-		headWidth += w;
-		headEnd++;
-	}
 
-	const tailBudget = available - headWidth;
-	let tailStart = segments.length;
-	let tailWidth = 0;
-	while (tailStart > headEnd) {
-		const w = getSegmentWidth(segments[tailStart - 1]);
-		if (tailWidth + w > tailBudget) {
-			break;
+		usedWidth += width;
+		if (pickTail) {
+			tailStart--;
+		} else {
+			headEnd++;
 		}
-		tailWidth += w;
-		tailStart--;
+		pickTail = !pickTail;
 	}
 
-	return `${segments.slice(0, headEnd).join('')}${ellipsis}${segments.slice(tailStart).join('')}`;
+	return `${graphemes.slice(0, headEnd).join('')}...${graphemes.slice(tailStart).join('')}`;
 }
 
 function getDisplayWidth(value: string): number {
 	let width = 0;
 	for (const { segment } of GRAPHEME_SEGMENTER.segment(value)) {
-		width += getSegmentWidth(segment);
+		width += getGraphemeWidth(segment);
 	}
 	return width;
 }
 
-function getSegmentWidth(segment: string): number {
-	const cp = segment.codePointAt(0);
+function getGraphemeWidth(grapheme: string): number {
+	const cp = grapheme.codePointAt(0);
 	if (cp === undefined) {
 		return 0;
 	}
-	return cp <= ASCII_MAX_CODE_POINT ? 1 : 2;
+	if (cp <= ASCII_MAX_CODE_POINT) {
+		return 1;
+	}
+	return isWideCodePoint(cp) || EXTENDED_PICTOGRAPHIC_PATTERN.test(grapheme) ? 2 : 1;
 }
 
-function formatModeCell(mode?: bigint): string | undefined {
-	if (mode === undefined) {
-		return undefined;
+function isWideCodePoint(cp: number): boolean {
+	for (const [start, end] of WIDE_CODE_POINT_RANGES) {
+		if (cp < start) {
+			return false;
+		}
+		if (cp <= end) {
+			return true;
+		}
 	}
-
-	return `${formatMode(mode, 'o')} (${formatMode(mode, 's')})`;
+	return false;
 }
 
-function formatSizeCell(size?: bigint): string | undefined {
-	if (size === undefined) {
-		return undefined;
-	}
-
-	return `${size} (${formatSize(size, 'iec')})`;
+function ifDefined<T, R>(value: T | undefined, fn: (value: T) => R): R | undefined {
+	return value !== undefined ? fn(value) : undefined;
 }

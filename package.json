@@ -53,7 +53,7 @@
 				"file-statbar.template": {
 					"type": "string",
 					"default": "[ {mode} | {size:iec} | {mtime} (M) ]",
-					"description": "Status bar display template."
+					"markdownDescription": "Status bar display template. Placeholders: `{mode[:s|b|o|d|x|X]}`, `{size[:bytes|si|iec]}`, `{atime|mtime|ctime|btime[:iso-8601|iso-utc|datetime|date|time]}`. Escape literal braces with `{{` and `}}`."
 				},
 				"file-statbar.position": {
 					"type": "string",
@@ -67,7 +67,7 @@
 				"file-statbar.priority": {
 					"type": "number",
 					"default": 1024,
-					"description": "Status bar priority."
+					"description": "Status bar priority (higher values place item closer to center)."
 				}
 			}
 		}

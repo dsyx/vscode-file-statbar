@@ -18,6 +18,7 @@ A lightweight VS Code extension: File stats at a glance in your status bar.
 > **Note:**
 >
 > - On non-POSIX platforms or filesystems, `mode` is synthesized.
+> - Symbolic links report link metadata (`lstat`), not target file metadata.
 > - Unavailable fields fall back to `-`.
 > - In the hover tooltip, compound fields are formatted as `value (human-friendly representation)`.
 
@@ -31,7 +32,7 @@ A lightweight VS Code extension: File stats at a glance in your status bar.
 
 ### `file-statbar.template`
 
-Placeholders use `{<field>}` or `{<field>:<modifier>}` to display file attributes and select an optional output modifier.
+Placeholders use `{<field>}` or `{<field>:<modifier>}` to display file attributes and select an optional output modifier. To output literal braces, escape them as `{{` and `}}`.
 
 #### File Mode
 
