@@ -12,7 +12,7 @@ const DEFAULT_CONFIG: Config = {
 };
 const DEBOUNCE_DELAY_MS = 10;
 
-export function activate(context: vscode.ExtensionContext): void {
+export function activate(context: vscode.ExtensionContext): StatBar {
 	const logger = vscode.window.createOutputChannel(EXTENSION.displayName, { log: true });
 	const statBar = new StatBar(loadConfig());
 	let latestGeneration = 0;
@@ -23,17 +23,10 @@ export function activate(context: vscode.ExtensionContext): void {
 		clearTimeout(debounceTimer);
 
 		debounceTimer = setTimeout(async () => {
-			try {
-				const uri = getActiveFileResourceUri();
-				const stats = uri ? await stat(uri, logger) : undefined;
-				if (generation === latestGeneration) {
-					statBar.update(stats);
-				}
-			} catch (err) {
-				logger.error(err instanceof Error ? err : String(err));
-				if (generation === latestGeneration) {
-					statBar.update(undefined);
-				}
+			const uri = getActiveFileResourceUri();
+			const stats = uri ? await stat(uri, logger) : undefined;
+			if (generation === latestGeneration) {
+				statBar.update(stats);
 			}
 		}, DEBOUNCE_DELAY_MS);
 	};
@@ -62,9 +55,6 @@ export function activate(context: vscode.ExtensionContext): void {
 	};
 
 	context.subscriptions.push(
-		logger,
-		statBar,
-		debounceTimerDisposable,
 		vscode.commands.registerCommand(COMMAND_REFRESH, refresh),
 		vscode.workspace.onDidChangeConfiguration(updateConfigIfAffected),
 		vscode.workspace.onDidSaveTextDocument(refreshIfActiveDocument),
@@ -73,38 +63,38 @@ export function activate(context: vscode.ExtensionContext): void {
 		vscode.window.tabGroups.onDidChangeTabGroups(refresh),
 		vscode.window.onDidChangeActiveTextEditor(refresh),
 		vscode.window.onDidChangeWindowState(refreshIfWindowFocused),
+		debounceTimerDisposable,
+		statBar,
+		logger,
 	);
 
 	refresh();
+	return statBar;
 }
 
 export function deactivate(): void {}
 
 function getActiveFileResourceUri(): vscode.Uri | undefined {
 	const input = vscode.window.tabGroups.activeTabGroup.activeTab?.input;
-	let uri: vscode.Uri | undefined;
-
 	if (
-		input instanceof vscode.TabInputText ||
-		input instanceof vscode.TabInputCustom ||
-		input instanceof vscode.TabInputNotebook
+		!(
+			input instanceof vscode.TabInputText ||
+			input instanceof vscode.TabInputCustom ||
+			input instanceof vscode.TabInputNotebook
+		)
 	) {
-		uri = input.uri;
+		return undefined;
 	}
 
 	// `undefined` means no file system provider is registered for the scheme, so the resource cannot be stat'ed.
-	return uri && vscode.workspace.fs.isWritableFileSystem(uri.scheme) !== undefined ? uri : undefined;
+	return vscode.workspace.fs.isWritableFileSystem(input.uri.scheme) !== undefined ? input.uri : undefined;
 }
 
 function loadConfig(): Config {
 	const config = vscode.workspace.getConfiguration(EXTENSION.name);
-	const template = config.get<unknown>('template');
-	const position = config.get<unknown>('position');
-	const priority = config.get<unknown>('priority');
-
 	return {
-		template: typeof template === 'string' ? template : DEFAULT_CONFIG.template,
-		position: position === 'left' || position === 'right' ? position : DEFAULT_CONFIG.position,
-		priority: typeof priority === 'number' && Number.isFinite(priority) ? priority : DEFAULT_CONFIG.priority,
+		template: config.get('template', DEFAULT_CONFIG.template),
+		position: config.get('position', DEFAULT_CONFIG.position),
+		priority: config.get('priority', DEFAULT_CONFIG.priority),
 	};
 }

@@ -1,3 +1,9 @@
+// Extension metadata
+export const EXTENSION = {
+	name: 'file-statbar',
+	displayName: 'File StatBar',
+} as const;
+
 // POSIX file type constants
 export const S_IFMT = 0o170000; // Bit mask for the file type bit field
 export const S_IFSOCK = 0o140000; // Socket
@@ -26,9 +32,3 @@ export const S_IRWXO = 0o000007; // Read, write, and execute/search by others
 export const S_IROTH = 0o000004; // Read permission, others
 export const S_IWOTH = 0o000002; // Write permission, others
 export const S_IXOTH = 0o000001; // Execute/search permission, others
-
-// Extension metadata
-export const EXTENSION = {
-	name: 'file-statbar',
-	displayName: 'File StatBar',
-} as const;

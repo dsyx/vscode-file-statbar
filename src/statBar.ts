@@ -1,15 +1,9 @@
 import * as vscode from 'vscode';
 import { EXTENSION } from './constants.js';
 import { renderTemplate, renderTooltip } from './renderer.js';
-import type { Config, Position, Stats } from './types.js';
+import type { Config, Stats } from './types.js';
 
 const STATUS_BAR_ID = `${EXTENSION.name}.item`;
-
-const POSITION_LAYOUTS = new Map<Position, { alignment: vscode.StatusBarAlignment; priorityFactor: number }>([
-	['left', { alignment: vscode.StatusBarAlignment.Left, priorityFactor: -1 }],
-	['right', { alignment: vscode.StatusBarAlignment.Right, priorityFactor: 1 }],
-]);
-const DEFAULT_LAYOUT = { alignment: vscode.StatusBarAlignment.Right, priorityFactor: 1 };
 
 export class StatBar implements vscode.Disposable {
 	#item: vscode.StatusBarItem;
@@ -61,8 +55,9 @@ export class StatBar implements vscode.Disposable {
 }
 
 function createItem(config: Config): vscode.StatusBarItem {
-	const { alignment, priorityFactor } = POSITION_LAYOUTS.get(config.position) ?? DEFAULT_LAYOUT;
-	const priority = config.priority === 0 ? 0 : priorityFactor * config.priority;
+	const isLeft = config.position === 'left';
+	const alignment = isLeft ? vscode.StatusBarAlignment.Left : vscode.StatusBarAlignment.Right;
+	const priority = (isLeft ? -1 : 1) * config.priority;
 	const item = vscode.window.createStatusBarItem(STATUS_BAR_ID, alignment, priority);
 	item.name = EXTENSION.displayName;
 	return item;
