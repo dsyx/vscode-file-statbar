@@ -5,23 +5,26 @@ import * as path from 'node:path';
 import * as vscode from 'vscode';
 import { stat } from '../stat.js';
 
-suite('stat tests', () => {
+suite('Stat Test Suite', () => {
 	let tempDir: string;
 	let testFilePath: string;
 	let symlinkPath: string;
-	let symlinkSupported = false;
+	let symlinkTarget: string;
 
 	suiteSetup(async () => {
 		tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'file-statbar-test-'));
 		testFilePath = path.join(tempDir, 'sample.txt');
 		await fs.writeFile(testFilePath, 'Hello, File StatBar!', 'utf8');
 
-		symlinkPath = path.join(tempDir, 'sample-link.txt');
+		symlinkPath = path.join(tempDir, 'sample-link');
 		try {
 			await fs.symlink(testFilePath, symlinkPath);
-			symlinkSupported = true;
+			symlinkTarget = testFilePath;
 		} catch {
-			// Symlinks might not be supported without admin on Windows; the symlink test is skipped in that case.
+			const targetDir = path.join(tempDir, 'target-dir');
+			await fs.mkdir(targetDir);
+			await fs.symlink(targetDir, symlinkPath, 'junction');
+			symlinkTarget = targetDir;
 		}
 	});
 
@@ -42,6 +45,31 @@ suite('stat tests', () => {
 		assert.strictEqual(typeof res.mtimeNs, 'bigint');
 		assert.strictEqual(typeof res.ctimeNs, 'bigint');
 		assert.ok((res.mtimeNs ?? 0n) > 0n);
+
+		const winRes = await stat(vscode.Uri.file(testFilePath), undefined, 'win32');
+		assert.ok(winRes !== undefined);
+		assert.strictEqual(winRes.uid, undefined);
+		assert.strictEqual(winRes.gid, undefined);
+
+		const posixRes = await stat(vscode.Uri.file(testFilePath), undefined, 'linux');
+		assert.ok(posixRes !== undefined);
+		assert.strictEqual(typeof posixRes.uid, 'bigint');
+		assert.strictEqual(typeof posixRes.gid, 'bigint');
+	});
+
+	test('should resolve relative filePath for files inside workspace across platforms', async () => {
+		const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+		assert.ok(workspaceFolder !== undefined);
+
+		const workspaceFileUri = vscode.Uri.joinPath(workspaceFolder.uri, 'src', 'stat.ts');
+		const winStat = await stat(workspaceFileUri, undefined, 'win32');
+		assert.strictEqual(winStat?.filePath, 'src\\stat.ts');
+
+		const linuxStat = await stat(workspaceFileUri, undefined, 'linux');
+		assert.strictEqual(linuxStat?.filePath, 'src/stat.ts');
+
+		const darwinStat = await stat(workspaceFileUri, undefined, 'darwin');
+		assert.strictEqual(darwinStat?.filePath, 'src/stat.ts');
 	});
 
 	test('should get virtual file stats and handle zero timestamps gracefully', async () => {
@@ -181,15 +209,11 @@ suite('stat tests', () => {
 		}
 	});
 
-	test('should get stats for a symbolic link if supported', async function () {
-		if (!symlinkSupported) {
-			this.skip();
-		}
-
+	test('should get stats for a symbolic link', async () => {
 		const res = await stat(vscode.Uri.file(symlinkPath));
 		assert.ok(res !== undefined);
 		assert.strictEqual(res.filePath, vscode.Uri.file(symlinkPath).fsPath);
-		assert.strictEqual(res.symlinkTarget, testFilePath);
+		assert.strictEqual(res.symlinkTarget, symlinkTarget);
 		assert.strictEqual(typeof res.mode, 'bigint');
 		assert.strictEqual((res.mode ?? 0n) & 0o170000n, 0o120000n);
 	});

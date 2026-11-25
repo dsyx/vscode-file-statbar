@@ -19,7 +19,7 @@ suite('Extension Test Suite', () => {
 
 	suiteTeardown(async () => {
 		await vscode.commands.executeCommand('workbench.action.closeAllEditors');
-		await fs.rm(tempDir, { recursive: true, force: true });
+		await fs.rm(tempDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
 	});
 
 	test('should register and execute file-statbar.refresh command', async () => {

@@ -5,11 +5,19 @@ import type { Stats } from './types.js';
 
 const NS_PER_MS = 1_000_000n;
 
-export async function stat(uri: vscode.Uri, logger?: vscode.LogOutputChannel): Promise<Stats | undefined> {
-	return uri.scheme === 'file' ? statLocal(uri, logger) : statVirtual(uri, logger);
+export async function stat(
+	uri: vscode.Uri,
+	logger?: vscode.LogOutputChannel,
+	platform: NodeJS.Platform = process.platform,
+): Promise<Stats | undefined> {
+	return uri.scheme === 'file' ? statLocal(uri, logger, platform) : statVirtual(uri, logger, platform);
 }
 
-async function statLocal(uri: vscode.Uri, logger?: vscode.LogOutputChannel): Promise<Stats | undefined> {
+async function statLocal(
+	uri: vscode.Uri,
+	logger: vscode.LogOutputChannel | undefined,
+	platform: NodeJS.Platform,
+): Promise<Stats | undefined> {
 	const { fsPath } = uri;
 
 	try {
@@ -29,8 +37,8 @@ async function statLocal(uri: vscode.Uri, logger?: vscode.LogOutputChannel): Pro
 			ino: stats.ino,
 			mode: stats.mode,
 			nlink: stats.nlink,
-			uid: stats.uid,
-			gid: stats.gid,
+			uid: platform === 'win32' ? undefined : stats.uid,
+			gid: platform === 'win32' ? undefined : stats.gid,
 			rdev: stats.rdev,
 			size: stats.size,
 			blksize: stats.blksize,
@@ -39,7 +47,7 @@ async function statLocal(uri: vscode.Uri, logger?: vscode.LogOutputChannel): Pro
 			mtimeNs: stats.mtimeNs,
 			ctimeNs: stats.ctimeNs,
 			btimeNs: stats.birthtimeNs !== 0n ? stats.birthtimeNs : undefined,
-			filePath: resolveFilePath(uri),
+			filePath: resolveFilePath(uri, platform),
 			symlinkTarget,
 		};
 	} catch (err) {
@@ -48,7 +56,11 @@ async function statLocal(uri: vscode.Uri, logger?: vscode.LogOutputChannel): Pro
 	}
 }
 
-async function statVirtual(uri: vscode.Uri, logger?: vscode.LogOutputChannel): Promise<Stats | undefined> {
+async function statVirtual(
+	uri: vscode.Uri,
+	logger: vscode.LogOutputChannel | undefined,
+	platform: NodeJS.Platform,
+): Promise<Stats | undefined> {
 	try {
 		const stats = await vscode.workspace.fs.stat(uri);
 		// `workspace.fs.stat()` does not inject `FilePermission.Readonly` when a readonly provider omits `permissions`.
@@ -70,7 +82,7 @@ async function statVirtual(uri: vscode.Uri, logger?: vscode.LogOutputChannel): P
 			size: BigInt(Math.trunc(stats.size)),
 			mtimeNs: stats.mtime > 0 ? BigInt(Math.trunc(stats.mtime)) * NS_PER_MS : undefined,
 			btimeNs: stats.ctime > 0 ? BigInt(Math.trunc(stats.ctime)) * NS_PER_MS : undefined,
-			filePath: resolveFilePath(uri),
+			filePath: resolveFilePath(uri, platform),
 		};
 	} catch (err) {
 		logger?.debug(`stat: ${uri.toString()}: ${String(err)}`);
@@ -78,9 +90,10 @@ async function statVirtual(uri: vscode.Uri, logger?: vscode.LogOutputChannel): P
 	}
 }
 
-function resolveFilePath(uri: vscode.Uri): string {
+function resolveFilePath(uri: vscode.Uri, platform: NodeJS.Platform): string {
 	if (vscode.workspace.getWorkspaceFolder(uri)) {
-		return vscode.workspace.asRelativePath(uri);
+		const relativePath = vscode.workspace.asRelativePath(uri);
+		return uri.scheme === 'file' && platform === 'win32' ? relativePath.replaceAll('/', '\\') : relativePath;
 	}
 	return uri.scheme === 'file' ? uri.fsPath : uri.path;
 }
