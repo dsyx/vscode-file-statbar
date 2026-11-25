@@ -60,15 +60,15 @@ Placeholders use `{<field>}` or `{<field>:<modifier>}` to display file attribute
 | `{ctime}`   | Time of last status change     |
 | `{btime}`   | Time of file birth (creation)  |
 
-Supported modifiers via `:<modifier>` (default: `iso-datetime`):
+Supported modifiers via `:<modifier>` (default: `datetime`):
 
-| Modifier       | Description                                         | Example                     |
-| :------------- | :-------------------------------------------------- | :-------------------------- |
-| `iso-8601`     | Full ISO 8601 extended local time (`±HH:MM` offset) | `2026-11-05T14:30:45+08:00` |
-| `iso-utc`      | Full ISO 8601 extended UTC time (`Z` suffix)        | `2026-11-05T06:30:45Z`      |
-| `iso-datetime` | Local date and time (`YYYY-MM-DD HH:MM:SS`)         | `2026-11-05 14:30:45`       |
-| `iso-date`     | Local calendar date (`YYYY-MM-DD`)                  | `2026-11-05`                |
-| `iso-time`     | Local wall-clock time (`HH:MM:SS`)                  | `14:30:45`                  |
+| Modifier   | Description                                            | Example                     |
+| :--------- | :----------------------------------------------------- | :-------------------------- |
+| `iso-8601` | ISO 8601 extended local date-time (`±HH:MM` offset)    | `2026-11-05T14:30:45+08:00` |
+| `iso-utc`  | ISO 8601 extended UTC date-time (`Z` suffix)           | `2026-11-05T06:30:45Z`      |
+| `datetime` | Local date and time (`YYYY-MM-DD HH:MM:SS`, no offset) | `2026-11-05 14:30:45`       |
+| `date`     | Local calendar date (`YYYY-MM-DD`)                     | `2026-11-05`                |
+| `time`     | Local 24-hour wall-clock time (`HH:MM:SS`)             | `14:30:45`                  |
 
 ## Commands
 

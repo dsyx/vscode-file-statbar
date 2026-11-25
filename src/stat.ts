@@ -3,6 +3,8 @@ import * as vscode from 'vscode';
 import * as constants from './constants.js';
 import type { Stats } from './types.js';
 
+const NS_PER_MS = 1_000_000n;
+
 export async function stat(uri: vscode.Uri, logger?: vscode.LogOutputChannel): Promise<Stats | undefined> {
 	return uri.scheme === 'file' ? statLocal(uri, logger) : statVirtual(uri, logger);
 }
@@ -25,18 +27,14 @@ async function statLocal(uri: vscode.Uri, logger?: vscode.LogOutputChannel): Pro
 		return {
 			dev: stats.dev,
 			ino: stats.ino,
-			mode: Number(stats.mode),
-			nlink: Number(stats.nlink),
-			uid: Number(stats.uid),
-			gid: Number(stats.gid),
+			mode: stats.mode,
+			nlink: stats.nlink,
+			uid: stats.uid,
+			gid: stats.gid,
 			rdev: stats.rdev,
-			size: Number(stats.size),
-			blksize: Number(stats.blksize),
-			blocks: Number(stats.blocks),
-			atime: stats.atime,
-			mtime: stats.mtime,
-			ctime: stats.ctime,
-			btime: stats.birthtime.getTime() !== 0 ? stats.birthtime : undefined,
+			size: stats.size,
+			blksize: stats.blksize,
+			blocks: stats.blocks,
 			atimeNs: stats.atimeNs,
 			mtimeNs: stats.mtimeNs,
 			ctimeNs: stats.ctimeNs,
@@ -55,23 +53,23 @@ async function statVirtual(uri: vscode.Uri, logger?: vscode.LogOutputChannel): P
 		const stats = await vscode.workspace.fs.stat(uri);
 		// `workspace.fs.stat()` does not inject `FilePermission.Readonly` when a readonly provider omits `permissions`.
 		const isReadonly =
-			Boolean((stats.permissions ?? 0) & vscode.FilePermission.Readonly) ||
+			((stats.permissions ?? 0) & vscode.FilePermission.Readonly) !== 0 ||
 			vscode.workspace.fs.isWritableFileSystem(uri.scheme) === false;
 
-		let mode: number | undefined;
+		let mode: bigint | undefined;
 		if ((stats.type & vscode.FileType.SymbolicLink) !== 0) {
-			mode = constants.S_IFLNK | constants.S_IRWXU;
+			mode = BigInt(constants.S_IFLNK | constants.S_IRWXU);
 		} else if ((stats.type & vscode.FileType.Directory) !== 0) {
-			mode = constants.S_IFDIR | constants.S_IRUSR | (isReadonly ? 0 : constants.S_IWUSR) | constants.S_IXUSR;
+			mode = BigInt(constants.S_IFDIR | constants.S_IRUSR | (isReadonly ? 0 : constants.S_IWUSR) | constants.S_IXUSR);
 		} else if ((stats.type & vscode.FileType.File) !== 0) {
-			mode = constants.S_IFREG | constants.S_IRUSR | (isReadonly ? 0 : constants.S_IWUSR);
+			mode = BigInt(constants.S_IFREG | constants.S_IRUSR | (isReadonly ? 0 : constants.S_IWUSR));
 		}
 
 		return {
 			mode,
-			size: stats.size,
-			mtime: stats.mtime > 0 ? new Date(stats.mtime) : undefined,
-			btime: stats.ctime > 0 ? new Date(stats.ctime) : undefined,
+			size: BigInt(Math.trunc(stats.size)),
+			mtimeNs: stats.mtime > 0 ? BigInt(Math.trunc(stats.mtime)) * NS_PER_MS : undefined,
+			btimeNs: stats.ctime > 0 ? BigInt(Math.trunc(stats.ctime)) * NS_PER_MS : undefined,
 			filePath: resolveFilePath(uri),
 		};
 	} catch (err) {

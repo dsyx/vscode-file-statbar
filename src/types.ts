@@ -9,18 +9,14 @@ export interface Config {
 export interface Stats {
 	readonly dev?: bigint;
 	readonly ino?: bigint;
-	readonly mode?: number;
-	readonly nlink?: number;
-	readonly uid?: number;
-	readonly gid?: number;
+	readonly mode?: bigint;
+	readonly nlink?: bigint;
+	readonly uid?: bigint;
+	readonly gid?: bigint;
 	readonly rdev?: bigint;
-	readonly size: number;
-	readonly blksize?: number;
-	readonly blocks?: number;
-	readonly atime?: Date;
-	readonly mtime?: Date;
-	readonly ctime?: Date;
-	readonly btime?: Date;
+	readonly size?: bigint;
+	readonly blksize?: bigint;
+	readonly blocks?: bigint;
 	readonly atimeNs?: bigint;
 	readonly mtimeNs?: bigint;
 	readonly ctimeNs?: bigint;

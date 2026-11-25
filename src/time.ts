@@ -1,45 +1,40 @@
-const NS_PER_SECOND = 1_000_000_000n;
+const NS_PER_S = 1_000_000_000n;
 
-const TIMESTAMP_FORMATTERS = new Map<string, (date: Date) => string>([
+const TIMESTAMP_FORMATTERS = new Map<string, (date: Date, nanoseconds: number) => string>([
 	['iso-8601', (date) => `${formatLocalDate(date)}T${formatLocalTime(date)}${formatTimezoneOffset(date)}`],
 	['iso-utc', (date) => `${formatUtcDate(date)}T${formatUtcTime(date)}Z`],
-	['iso-datetime', (date) => `${formatLocalDate(date)} ${formatLocalTime(date)}`],
-	['iso-date', formatLocalDate],
-	['iso-time', formatLocalTime],
+	['datetime', (date) => `${formatLocalDate(date)} ${formatLocalTime(date)}`],
+	['date', formatLocalDate],
+	['time', formatLocalTime],
+	[
+		'gnu-full-iso',
+		(date, nanoseconds) =>
+			`${formatLocalDate(date)} ${formatLocalTime(date)}.${padZero(nanoseconds, 9)} ${formatTimezoneOffset(date, '')}`,
+	],
 ]);
 
 export function formatTimestamp(
-	date: Date,
-	format: 'iso-8601' | 'iso-utc' | 'iso-datetime' | 'iso-date' | 'iso-time' | (string & {}) = 'iso-datetime',
+	ns: bigint,
+	format: 'iso-8601' | 'iso-utc' | 'datetime' | 'date' | 'time' | 'gnu-full-iso' | (string & {}) = 'datetime',
 ): string | undefined {
+	const formatter = TIMESTAMP_FORMATTERS.get(format);
+	if (!formatter) {
+		return undefined;
+	}
+
+	let seconds = ns / NS_PER_S;
+	let nanoseconds = ns % NS_PER_S;
+	if (nanoseconds < 0n) {
+		seconds -= 1n;
+		nanoseconds += NS_PER_S;
+	}
+
+	const date = new Date(Number(seconds) * 1000);
 	if (Number.isNaN(date.getTime())) {
 		return undefined;
 	}
 
-	return TIMESTAMP_FORMATTERS.get(format)?.(date);
-}
-
-export function formatNanosecondTimestamp(ns?: bigint, fallbackDate?: Date): string | undefined {
-	if (ns !== undefined) {
-		let seconds = ns / NS_PER_SECOND;
-		let subNs = ns % NS_PER_SECOND;
-		if (subNs < 0n) {
-			seconds -= 1n;
-			subNs += NS_PER_SECOND;
-		}
-		const date = new Date(Number(seconds) * 1000);
-		if (Number.isNaN(date.getTime())) {
-			return undefined;
-		}
-		return `${formatLocalDate(date)} ${formatLocalTime(date)}.${padZero(Number(subNs), 9)} ${formatCompactTimezoneOffset(date)}`;
-	}
-
-	if (fallbackDate !== undefined && !Number.isNaN(fallbackDate.getTime())) {
-		const subNs = `${padZero(fallbackDate.getMilliseconds(), 3)}000000`;
-		return `${formatLocalDate(fallbackDate)} ${formatLocalTime(fallbackDate)}.${subNs} ${formatCompactTimezoneOffset(fallbackDate)}`;
-	}
-
-	return undefined;
+	return formatter(date, Number(nanoseconds));
 }
 
 function formatLocalDate(date: Date): string {
@@ -50,36 +45,21 @@ function formatLocalTime(date: Date): string {
 	return formatTimeParts(date.getHours(), date.getMinutes(), date.getSeconds());
 }
 
-function getTimezoneOffsetParts(date: Date): { sign: string; hours: string; minutes: string } {
-	const offsetMinutes = Math.round(-date.getTimezoneOffset());
-	if (offsetMinutes === 0) {
-		return { sign: '+', hours: '00', minutes: '00' };
-	}
-	const sign = offsetMinutes > 0 ? '+' : '-';
-	const absMinutes = Math.abs(offsetMinutes);
-	return {
-		sign,
-		hours: padZero(Math.floor(absMinutes / 60), 2),
-		minutes: padZero(absMinutes % 60, 2),
-	};
-}
-
-function formatTimezoneOffset(date: Date): string {
-	const { sign, hours, minutes } = getTimezoneOffsetParts(date);
-	return `${sign}${hours}:${minutes}`;
-}
-
-function formatCompactTimezoneOffset(date: Date): string {
-	const { sign, hours, minutes } = getTimezoneOffsetParts(date);
-	return `${sign}${hours}${minutes}`;
-}
-
 function formatUtcDate(date: Date): string {
 	return formatDateParts(date.getUTCFullYear(), date.getUTCMonth() + 1, date.getUTCDate());
 }
 
 function formatUtcTime(date: Date): string {
 	return formatTimeParts(date.getUTCHours(), date.getUTCMinutes(), date.getUTCSeconds());
+}
+
+function formatTimezoneOffset(date: Date, separator = ':'): string {
+	const offsetMinutes = Math.round(-date.getTimezoneOffset());
+	const sign = offsetMinutes < 0 ? '-' : '+';
+	const absMinutes = Math.abs(offsetMinutes);
+	const hours = padZero(Math.floor(absMinutes / 60), 2);
+	const minutes = padZero(absMinutes % 60, 2);
+	return `${sign}${hours}${separator}${minutes}`;
 }
 
 function formatDateParts(year: number, month: number, day: number): string {

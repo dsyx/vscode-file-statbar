@@ -17,14 +17,9 @@ const UNIT_SYSTEMS = new Map([
 	],
 ]);
 
-export function formatSize(
-	bytes: number,
-	format: 'bytes' | 'si' | 'iec' | (string & {}) = 'bytes',
-): string | undefined {
-	if (!Number.isInteger(bytes) || bytes < 0) {
-		return undefined;
-	}
-
+export function formatSize(bytes: bigint, format?: 'bytes' | 'si' | 'iec'): string;
+export function formatSize(bytes: bigint, format: string): string | undefined;
+export function formatSize(bytes: bigint, format = 'bytes'): string | undefined {
 	if (format === 'bytes') {
 		return `${bytes} B`;
 	}
@@ -34,19 +29,20 @@ export function formatSize(
 		return undefined;
 	}
 
+	const b = Number(bytes);
 	const { base, units } = system;
-	if (bytes < base) {
+	if (b < base) {
 		return `${bytes} ${units[0]}`;
 	}
 
 	let unitIndex = 1;
 	let divisor = base;
-	while (unitIndex < units.length - 1 && bytes >= divisor * base) {
+	while (unitIndex < units.length - 1 && b >= divisor * base) {
 		divisor *= base;
 		unitIndex++;
 	}
 
-	const value = bytes / divisor;
+	const value = b / divisor;
 	const fixed = value.toFixed(DECIMAL_PLACES);
 	if (unitIndex < units.length - 1 && Number(fixed) >= base) {
 		return `${(value / base).toFixed(DECIMAL_PLACES)} ${units[unitIndex + 1]}`;

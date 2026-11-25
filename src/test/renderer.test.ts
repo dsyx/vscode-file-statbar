@@ -10,17 +10,13 @@ suite('renderer tests', () => {
 	const sampleDirStats: Stats = {
 		dev: 0x17n,
 		ino: 948n,
-		mode: 0o040755,
-		nlink: 2,
-		uid: 104,
-		gid: 112,
-		size: 80,
-		blocks: 0,
-		blksize: 4096,
-		atime: fixedDate,
-		mtime: fixedDate,
-		ctime: fixedDate,
-		btime: fixedDate,
+		mode: 0o040755n,
+		nlink: 2n,
+		uid: 104n,
+		gid: 112n,
+		size: 80n,
+		blocks: 0n,
+		blksize: 4096n,
 		atimeNs: baseSec * 1_000_000_000n + 336_000_044n,
 		mtimeNs: baseSec * 1_000_000_000n + 380_000_045n,
 		ctimeNs: baseSec * 1_000_000_000n + 380_000_045n,
@@ -68,8 +64,8 @@ suite('renderer tests', () => {
 	test('should maintain minimum gap of 2 when size or inode is wider than mode', () => {
 		const largeStats: Stats = {
 			...sampleDirStats,
-			mode: 0o100644,
-			size: 104_857_600,
+			mode: 0o100644n,
+			size: 104_857_600n,
 			ino: 1_125_899_906_842_624n,
 		};
 		const lines = renderTooltipText(largeStats, 'linux').split('\n');
@@ -97,9 +93,9 @@ suite('renderer tests', () => {
 	test('should fallback unavailable fields to dash for virtual files', () => {
 		const virtualStats: Stats = {
 			filePath: '/virtual.txt',
-			size: 128,
-			mode: 0o100600,
-			mtime: fixedDate,
+			size: 128n,
+			mode: 0o100600n,
+			mtimeNs: baseSec * 1_000_000_000n,
 		};
 		const lines = renderTooltipText(virtualStats, 'linux').split('\n');
 
@@ -118,7 +114,7 @@ suite('renderer tests', () => {
 	test('should sanitize control chars, truncate long paths within 80 cols, and guard markdown code fence', () => {
 		const trickyStats: Stats = {
 			filePath: `dir/\`\`\`evil\nline\ttab/${'a'.repeat(120)}.ts`,
-			size: 0,
+			size: 0n,
 		};
 		const tooltip = renderTooltip(trickyStats, 'linux');
 		assert.ok(tooltip instanceof vscode.MarkdownString);

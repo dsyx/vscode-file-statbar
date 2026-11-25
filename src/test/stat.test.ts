@@ -33,16 +33,15 @@ suite('stat tests', () => {
 		const res = await stat(vscode.Uri.file(testFilePath));
 		assert.ok(res !== undefined);
 		assert.strictEqual(res.filePath, vscode.Uri.file(testFilePath).fsPath);
-		assert.strictEqual(res.size, 20);
-		assert.ok(typeof res.mode === 'number');
-		assert.strictEqual(res.mode & 0o170000, 0o100000);
-		assert.ok(res.atime instanceof Date);
-		assert.ok(res.mtime instanceof Date);
-		assert.ok(res.ctime instanceof Date);
-		assert.ok(typeof res.ino === 'bigint');
-		assert.ok(typeof res.dev === 'bigint');
-		assert.ok(typeof res.mtimeNs === 'bigint');
-		assert.ok(res.mtimeNs > 0n);
+		assert.strictEqual(res.size, 20n);
+		assert.strictEqual(typeof res.mode, 'bigint');
+		assert.strictEqual((res.mode ?? 0n) & 0o170000n, 0o100000n);
+		assert.strictEqual(typeof res.ino, 'bigint');
+		assert.strictEqual(typeof res.dev, 'bigint');
+		assert.strictEqual(typeof res.atimeNs, 'bigint');
+		assert.strictEqual(typeof res.mtimeNs, 'bigint');
+		assert.strictEqual(typeof res.ctimeNs, 'bigint');
+		assert.ok((res.mtimeNs ?? 0n) > 0n);
 	});
 
 	test('should get virtual file stats and handle zero timestamps gracefully', async () => {
@@ -104,6 +103,15 @@ suite('stat tests', () => {
 					size: 0,
 				},
 			],
+			[
+				'/fractional',
+				{
+					type: vscode.FileType.File,
+					ctime: 1_700_000_000_000.75,
+					mtime: 1_700_000_100_000.25,
+					size: 32,
+				},
+			],
 		]);
 
 		const logger = vscode.window.createOutputChannel('StatBar Test', { log: true });
@@ -112,33 +120,39 @@ suite('stat tests', () => {
 			const fileStat = await stat(vscode.Uri.parse(`${scheme}:/file.txt`));
 			assert.ok(fileStat !== undefined);
 			assert.strictEqual(fileStat.filePath, '/file.txt');
-			assert.strictEqual(fileStat.mode, 0o100600);
-			assert.strictEqual(fileStat.size, 128);
-			assert.strictEqual(fileStat.btime?.getTime(), 1_700_000_000_000);
-			assert.strictEqual(fileStat.mtime?.getTime(), 1_700_000_100_000);
+			assert.strictEqual(fileStat.mode, 0o100600n);
+			assert.strictEqual(fileStat.size, 128n);
+			assert.strictEqual(fileStat.btimeNs, 1_700_000_000_000_000_000n);
+			assert.strictEqual(fileStat.mtimeNs, 1_700_000_100_000_000_000n);
 
 			const roStat = await stat(vscode.Uri.parse(`${scheme}:/readonly.txt`));
 			assert.ok(roStat !== undefined);
-			assert.strictEqual(roStat.mode, 0o100400);
-			assert.strictEqual(roStat.size, 64);
-			assert.strictEqual(roStat.btime, undefined);
-			assert.strictEqual(roStat.mtime, undefined);
+			assert.strictEqual(roStat.mode, 0o100400n);
+			assert.strictEqual(roStat.size, 64n);
+			assert.strictEqual(roStat.btimeNs, undefined);
+			assert.strictEqual(roStat.mtimeNs, undefined);
 
 			const dirStat = await stat(vscode.Uri.parse(`${scheme}:/dir`));
 			assert.ok(dirStat !== undefined);
-			assert.strictEqual(dirStat.mode, 0o040700);
+			assert.strictEqual(dirStat.mode, 0o040700n);
 
 			const roDirStat = await stat(vscode.Uri.parse(`${scheme}:/ro-dir`));
 			assert.ok(roDirStat !== undefined);
-			assert.strictEqual(roDirStat.mode, 0o040500);
+			assert.strictEqual(roDirStat.mode, 0o040500n);
 
 			const linkStat = await stat(vscode.Uri.parse(`${scheme}:/symlink`));
 			assert.ok(linkStat !== undefined);
-			assert.strictEqual(linkStat.mode, 0o120700);
+			assert.strictEqual(linkStat.mode, 0o120700n);
 
 			const unknownStat = await stat(vscode.Uri.parse(`${scheme}:/unknown`));
 			assert.ok(unknownStat !== undefined);
 			assert.strictEqual(unknownStat.mode, undefined);
+
+			const fractionalStat = await stat(vscode.Uri.parse(`${scheme}:/fractional`));
+			assert.ok(fractionalStat !== undefined);
+			assert.strictEqual(fractionalStat.btimeNs, 1_700_000_000_000_000_000n);
+			assert.strictEqual(fractionalStat.mtimeNs, 1_700_000_100_000_000_000n);
+			assert.strictEqual(fractionalStat.size, 32n);
 
 			const missingStat = await stat(vscode.Uri.parse(`${scheme}:/missing.txt`), logger);
 			assert.strictEqual(missingStat, undefined);
@@ -158,10 +172,10 @@ suite('stat tests', () => {
 		const registration = registerVirtualFs(scheme, entries, { isReadonly: true });
 		try {
 			const fileStat = await stat(vscode.Uri.parse(`${scheme}:/file.txt`));
-			assert.strictEqual(fileStat?.mode, 0o100400);
+			assert.strictEqual(fileStat?.mode, 0o100400n);
 
 			const dirStat = await stat(vscode.Uri.parse(`${scheme}:/dir`));
-			assert.strictEqual(dirStat?.mode, 0o040500);
+			assert.strictEqual(dirStat?.mode, 0o040500n);
 		} finally {
 			registration.dispose();
 		}
@@ -176,8 +190,8 @@ suite('stat tests', () => {
 		assert.ok(res !== undefined);
 		assert.strictEqual(res.filePath, vscode.Uri.file(symlinkPath).fsPath);
 		assert.strictEqual(res.symlinkTarget, testFilePath);
-		assert.strictEqual(typeof res.mode, 'number');
-		assert.strictEqual((res.mode ?? 0) & 0o170000, 0o120000);
+		assert.strictEqual(typeof res.mode, 'bigint');
+		assert.strictEqual((res.mode ?? 0n) & 0o170000n, 0o120000n);
 	});
 
 	test('should return undefined for non-existent file', async () => {

@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { formatDevice } from './dev.js';
 import { formatFileType, formatMode, formatPermissions } from './mode.js';
 import { formatSize } from './size.js';
-import { formatNanosecondTimestamp, formatTimestamp } from './time.js';
+import { formatTimestamp } from './time.js';
 import type { Stats } from './types.js';
 
 type GridCell = readonly [label: string, value: string | undefined];
@@ -33,27 +33,32 @@ export function renderTooltipText(stats: Stats, platform: NodeJS.Platform = proc
 	const detailRows: readonly (readonly GridCell[])[] = [
 		[
 			['dev', stats.dev !== undefined ? formatDevice(stats.dev, platform) : undefined],
-			['ino', stats.ino !== undefined ? stats.ino.toString(10) : undefined],
-			['nlink', formatOptionalInteger(stats.nlink)],
+			['ino', stats.ino?.toString()],
+			['nlink', stats.nlink?.toString()],
 		],
 		[
 			['mode', formatModeCell(stats.mode)],
 			['type', stats.mode !== undefined ? formatFileType(stats.mode) : undefined],
-			['perm', stats.mode !== undefined ? formatPermissions(stats.mode) : undefined],
+			[
+				'perm',
+				stats.mode !== undefined
+					? `${formatPermissions(stats.mode, 'o')} (${formatPermissions(stats.mode, 's')})`
+					: undefined,
+			],
 		],
 		[
-			['uid', formatOptionalInteger(stats.uid)],
-			['gid', formatOptionalInteger(stats.gid)],
+			['uid', stats.uid?.toString()],
+			['gid', stats.gid?.toString()],
 		],
 		[
 			['size', formatSizeCell(stats.size)],
-			['blocks', formatOptionalInteger(stats.blocks)],
-			['blksize', formatOptionalInteger(stats.blksize)],
+			['blocks', stats.blocks?.toString()],
+			['blksize', stats.blksize?.toString()],
 		],
-		[['atime', formatNanosecondTimestamp(stats.atimeNs, stats.atime)]],
-		[['mtime', formatNanosecondTimestamp(stats.mtimeNs, stats.mtime)]],
-		[['ctime', formatNanosecondTimestamp(stats.ctimeNs, stats.ctime)]],
-		[['btime', formatNanosecondTimestamp(stats.btimeNs, stats.btime)]],
+		[['atime', stats.atimeNs !== undefined ? formatTimestamp(stats.atimeNs, 'gnu-full-iso') : undefined]],
+		[['mtime', stats.mtimeNs !== undefined ? formatTimestamp(stats.mtimeNs, 'gnu-full-iso') : undefined]],
+		[['ctime', stats.ctimeNs !== undefined ? formatTimestamp(stats.ctimeNs, 'gnu-full-iso') : undefined]],
+		[['btime', stats.btimeNs !== undefined ? formatTimestamp(stats.btimeNs, 'gnu-full-iso') : undefined]],
 	];
 
 	const fileLabel = 'file';
@@ -71,13 +76,13 @@ function renderTemplateField(stats: Stats, field: string, modifier?: string): st
 		case 'mode':
 			return stats.mode !== undefined ? formatMode(stats.mode, modifier ?? 's') : undefined;
 		case 'size':
-			return formatSize(stats.size, modifier ?? 'bytes');
+			return stats.size !== undefined ? formatSize(stats.size, modifier ?? 'bytes') : undefined;
 		case 'atime':
 		case 'mtime':
 		case 'ctime':
 		case 'btime': {
-			const timestamp = stats[field];
-			return timestamp ? formatTimestamp(timestamp, modifier ?? 'iso-datetime') : undefined;
+			const timestamp = stats[`${field}Ns`];
+			return timestamp !== undefined ? formatTimestamp(timestamp, modifier ?? 'datetime') : undefined;
 		}
 		default:
 			return undefined;
@@ -219,21 +224,18 @@ function getSegmentWidth(segment: string): number {
 	return cp <= ASCII_MAX_CODE_POINT ? 1 : 2;
 }
 
-function formatOptionalInteger(value?: number): string | undefined {
-	return value !== undefined ? String(value) : undefined;
-}
-
-function formatModeCell(mode?: number): string | undefined {
+function formatModeCell(mode?: bigint): string | undefined {
 	if (mode === undefined) {
 		return undefined;
 	}
 
-	const octal = formatMode(mode, 'o');
-	const symbolic = formatMode(mode, 's');
-	return octal !== undefined && symbolic !== undefined ? `${octal} (${symbolic})` : undefined;
+	return `${formatMode(mode, 'o')} (${formatMode(mode, 's')})`;
 }
 
-function formatSizeCell(size: number): string | undefined {
-	const iec = formatSize(size, 'iec');
-	return iec !== undefined ? `${size} (${iec})` : undefined;
+function formatSizeCell(size?: bigint): string | undefined {
+	if (size === undefined) {
+		return undefined;
+	}
+
+	return `${size} (${formatSize(size, 'iec')})`;
 }

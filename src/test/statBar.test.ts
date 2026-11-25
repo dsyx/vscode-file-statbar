@@ -4,13 +4,14 @@ import { StatBar } from '../statBar.js';
 import type { Config, Stats } from '../types.js';
 
 suite('statBar tests', () => {
+	const toNs = (date: Date): bigint => BigInt(date.getTime()) * 1_000_000n;
 	const sampleStats: Stats = {
 		filePath: 'sample.txt',
-		size: 1178,
-		mode: 0o100644,
-		mtime: new Date(2026, 9, 29, 13, 59, 0),
-		ctime: new Date(2026, 9, 29, 14, 0, 0),
-		btime: new Date(2026, 9, 1, 8, 30, 0),
+		size: 1178n,
+		mode: 0o100644n,
+		mtimeNs: toNs(new Date(2026, 9, 29, 13, 59, 0)),
+		ctimeNs: toNs(new Date(2026, 9, 29, 14, 0, 0)),
+		btimeNs: toNs(new Date(2026, 9, 1, 8, 30, 0)),
 	};
 
 	const baseConfig: Config = {
@@ -33,7 +34,7 @@ suite('statBar tests', () => {
 		const statBar = new StatBar({
 			...baseConfig,
 			template:
-				'{mode} | {mode:s} | {mode:o} | {size} | {size:bytes} | {size:si} | {size:iec} | {atime} | {mtime:iso-date} | {ctime:iso-time} | {btime:iso-datetime}',
+				'{mode} | {mode:s} | {mode:o} | {size} | {size:bytes} | {size:si} | {size:iec} | {atime} | {mtime:date} | {ctime:time} | {btime:datetime}',
 		});
 		try {
 			statBar.update(sampleStats);
