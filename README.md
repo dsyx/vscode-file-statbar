@@ -7,7 +7,7 @@
 
 A lightweight VS Code extension: File stats at a glance in your status bar.
 
-<!-- ![File StatBar Preview](images/preview.png) -->
+![File StatBar Preview](images/preview.png)
 
 ## Features
 

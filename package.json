@@ -1,7 +1,7 @@
 {
 	"name": "file-statbar",
 	"displayName": "File StatBar",
-	"version": "0.0.1",
+	"version": "0.1.0",
 	"description": "File stats at a glance in your status bar.",
 	"categories": [
 		"Other"
@@ -30,6 +30,7 @@
 	"main": "./dist/extension.js",
 	"scripts": {
 		"build": "pnpm clean && node esbuild.js --production",
+		"changelog": "git-cliff -o CHANGELOG.md",
 		"check": "biome check . && tsc --noEmit",
 		"clean": "node -e \"['dist', 'out'].forEach(d => require('node:fs').rmSync(d, { recursive: true, force: true }))\"",
 		"format": "biome check --write .",
@@ -84,6 +85,7 @@
 		"@vscode/test-electron": "^3.0.0",
 		"@vscode/vsce": "^3.9.2",
 		"esbuild": "^0.28.1",
+		"git-cliff": "^2.14.2",
 		"typescript": "^6.0.3"
 	},
 	"engines": {
