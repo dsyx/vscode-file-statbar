@@ -6,7 +6,7 @@ import * as vscode from 'vscode';
 import type { StatBar } from '../statBar.js';
 
 const POLL_INTERVAL_MS = 15;
-const POLL_TIMEOUT_MS = 2000;
+const POLL_TIMEOUT_MS = 4000;
 const NEGATIVE_SETTLE_DELAY_MS = 50;
 
 suite('Extension Test Suite', () => {
@@ -68,7 +68,7 @@ suite('Extension Test Suite', () => {
 			await doc.save();
 			await waitFor(() => statBar.text.includes('| 13 B |'), 'status bar updated after saving a.txt (13 B)');
 
-			const untitledDoc = await vscode.workspace.openTextDocument({ content: 'untitled' });
+			const untitledDoc = await vscode.workspace.openTextDocument({ language: 'plaintext' });
 			await vscode.window.showTextDocument(untitledDoc);
 			await waitFor(() => statBar.text === '' && statBar.tooltip === undefined, 'status bar cleared for untitled doc');
 

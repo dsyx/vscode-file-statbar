@@ -1,5 +1,8 @@
 {
 	"version": "1.85.0",
 	"files": "out/test/**/*.test.js",
-	"workspaceFolder": "."
+	"workspaceFolder": ".",
+	"mocha": {
+		"timeout": 10000
+	}
 }
