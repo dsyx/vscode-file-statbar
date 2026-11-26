@@ -1,6 +1,7 @@
 # File StatBar
 
-[![Visual Studio Marketplace Version](https://img.shields.io/visual-studio-marketplace/v/dsyx.file-statbar?style=flat-square)](https://marketplace.visualstudio.com/items?itemName=dsyx.file-statbar)
+[![VS Marketplace](https://vsmarketplacebadges.dev/version-short/dsyx.file-statbar.svg?style=flat-square)](https://marketplace.visualstudio.com/items?itemName=dsyx.file-statbar)
+[![Open VSX](https://img.shields.io/open-vsx/v/dsyx/file-statbar?style=flat-square&label=Open%20VSX)](https://open-vsx.org/extension/dsyx/file-statbar)
 [![Changelog](https://img.shields.io/badge/Changelog-blue?style=flat-square)](CHANGELOG.md)
 [![GitHub Issues](https://img.shields.io/github/issues/dsyx/vscode-file-statbar?style=flat-square)](https://github.com/dsyx/vscode-file-statbar/issues)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)

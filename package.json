@@ -34,8 +34,10 @@
 		"check": "biome check . && tsc --noEmit",
 		"clean": "node -e \"['dist', 'out'].forEach(d => require('node:fs').rmSync(d, { recursive: true, force: true }))\"",
 		"format": "biome check --write .",
-		"package": "pnpm check && pnpm build && vsce package --no-dependencies",
-		"release": "pnpm check && pnpm build && vsce publish --no-dependencies",
+		"package": "pnpm check && pnpm build && vsce package --no-dependencies -o dist",
+		"release": "pnpm run \"/^release:.*/\"",
+		"release:ovsx": "ovsx publish --packagePath",
+		"release:vsce": "vsce publish --packagePath",
 		"test": "pnpm build && tsc -p . && vscode-test",
 		"watch": "pnpm run \"/^watch:.*/\"",
 		"watch:esbuild": "node esbuild.js --watch",
@@ -86,6 +88,7 @@
 		"@vscode/vsce": "^3.9.2",
 		"esbuild": "^0.28.1",
 		"git-cliff": "^2.14.2",
+		"ovsx": "^1.4.0",
 		"typescript": "^6.0.3"
 	},
 	"engines": {
