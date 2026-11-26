@@ -1,0 +1,77 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  release:
+    name: Release Extension
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/setup@v3
+        with:
+          cache: true
+
+      - name: Verify tag matches package.json version
+        id: meta
+        shell: bash
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          PKG_NAME="$(node -p "require('./package.json').name")"
+          PKG_VERSION="$(node -p "require('./package.json').version")"
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
+            echo "Tag ($TAG_VERSION) does not match package.json ($PKG_VERSION)" >&2
+            exit 1
+          fi
+          echo "vsix=dist/${PKG_NAME}-${PKG_VERSION}.vsix" >> "$GITHUB_OUTPUT"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Cache VS Code test binary
+        uses: actions/cache@v6
+        with:
+          path: .vscode-test
+          key: vscode-test-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.vscode-test.json') }}
+
+      - name: Run tests
+        run: |
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          xvfb-run -a pnpm test
+
+      - name: Package extension
+        run: pnpm package
+
+      - name: Publish to VS Code Marketplace
+        run: pnpm release:vsce "${{ steps.meta.outputs.vsix }}" --oidc --skip-duplicate
+
+      - name: Publish to Open VSX
+        run: pnpm release:ovsx "${{ steps.meta.outputs.vsix }}" --trusted-publishing --skip-duplicate
+
+      - name: Generate release notes
+        run: pnpm exec git-cliff --latest --strip all --output dist/release-notes.md
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "${{ steps.meta.outputs.vsix }}" --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" "${{ steps.meta.outputs.vsix }}" \
+              --title "$GITHUB_REF_NAME" \
+              --notes-file dist/release-notes.md
+          fi
